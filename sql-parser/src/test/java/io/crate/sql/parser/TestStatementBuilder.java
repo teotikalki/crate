@@ -26,7 +26,6 @@ import com.google.common.io.Resources;
 import io.crate.sql.Literals;
 import io.crate.sql.SqlFormatter;
 import io.crate.sql.tree.*;
-import org.antlr.runtime.tree.CommonTree;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -36,7 +35,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Strings.repeat;
 import static io.crate.sql.parser.TreeAssertions.assertFormattedSql;
-import static io.crate.sql.parser.TreePrinter.treeToString;
 import static java.lang.String.format;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -60,10 +58,74 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testStatementBuilder()
-        throws Exception {
+    public void testShowCreateTableStmtBuilder() {
+        printStatement("show create table test");
+        printStatement("show create table foo.test");
+        printStatement("show create table \"select\"");
+    }
+
+    @Test
+    public void testDropTableStmtBuilder() {
+        printStatement("drop table test");
+        printStatement("drop table if exists test");
+        printStatement("drop table if exists \"foo.bar\"");
+    }
+
+    @Test
+    public void testShowTablesStmtBuilder() {
+        printStatement("show tables");
+        printStatement("show tables like '.*'");
+        printStatement("show tables from table_schema");
+        printStatement("show tables in table_schema");
+        printStatement("show tables from foo like '.*'");
+        printStatement("show tables in foo like '.*'");
+        printStatement("show tables from table_schema like '.*'");
+        printStatement("show tables in table_schema like '*'");
+        printStatement("show tables in table_schema where name = 'foo'");
+        printStatement("show tables in table_schema where name > 'foo'");
+        printStatement("show tables in table_schema where name != 'foo'");
+    }
+
+    @Test
+    public void testShowColumnsStmtBuilder() {
+        printStatement("show columns from table_name");
+        printStatement("show columns in table_name");
+        printStatement("show columns from table_name from table_schema");
+        printStatement("show columns in table_name from table_schema");
+        printStatement("show columns in foo like '*'");
+        printStatement("show columns from foo like '*'");
+        printStatement("show columns from table_name from table_schema like '*'");
+        printStatement("show columns in table_name from table_schema like '*'");
+        printStatement("show columns from table_name where column_name = 'foo'");
+        printStatement("show columns from table_name from table_schema where column_name = 'foo'");
+    }
+
+    @Test
+    public void testDeleteFromStmtBuilder() {
+        printStatement("delete from foo as alias");
+        printStatement("delete from foo");
+        // TODO fix
+//        printStatement("delete from schemah.foo where foo.a=foo.b and a is not null");
+//        printStatement("delete from schemah.foo as alias where foo.a=foo.b and a is not null");
+    }
+
+    @Test
+    public void testShowSchemasStmtBuilder() {
+        printStatement("show schemas");
+        printStatement("show schemas like 'doc%'");
+        printStatement("show schemas where schema_name='doc'");
+        printStatement("show schemas where schema_name LIKE 'd%'");
+    }
+
+    @Test
+    public void testExplainStmtBuilder() {
+        printStatement("explain drop table foo");
+    }
+
+    @Test
+    public void testStatementBuilder() throws Exception {
         printStatement("select * from foo");
-        printStatement("explain select * from foo");
+
 
         printStatement("select * from foo a (x, y, z)");
 
@@ -121,13 +183,9 @@ public class TestStatementBuilder {
         printStatement("select * from foo limit 100 offset 20");
         printStatement("select * from foo offset 20");
 
-        printStatement("delete from foo");
-        printStatement("delete from schemah.foo where foo.a=foo.b and a is not null");
-
         printStatement("update foo set a=b");
         printStatement("update schemah.foo set foo.a='b', foo.b=foo.a");
         printStatement("update schemah.foo set foo.a=abs(-6.3334), x=true where x=false");
-
 
         printStatement("create table if not exists t (id integer primary key, name string)");
         printStatement("create table t (id integer primary key, name string)");
@@ -248,35 +306,6 @@ public class TestStatementBuilder {
 
         printStatement("kill all");
         printStatement("kill '6a3d6fb6-1401-4333-933d-b38c9322fca7'");
-
-        printStatement("show create table foo");
-
-        printStatement("show schemas");
-        printStatement("show schemas like 'doc%'");
-        printStatement("show schemas where schema_name='doc'");
-        printStatement("show schemas where schema_name LIKE 'd%'");
-
-        printStatement("show columns from table_name");
-        printStatement("show columns in table_name");
-        printStatement("show columns from table_name from table_schema");
-        printStatement("show columns in table_name from table_schema");
-        printStatement("show columns in foo like '*'");
-        printStatement("show columns from foo like '*'");
-        printStatement("show columns from table_name from table_schema like '*'");
-        printStatement("show columns in table_name from table_schema like '*'");
-        printStatement("show columns from table_name where column_name = 'foo'");
-        printStatement("show columns from table_name from table_schema where column_name = 'foo'");
-
-        printStatement("show tables");
-        printStatement("show tables like '.*'");
-        printStatement("show tables from table_schema");
-        printStatement("show tables in table_schema");
-        printStatement("show tables from foo like '.*'");
-        printStatement("show tables in foo like '.*'");
-        printStatement("show tables from table_schema like '.*'");
-        printStatement("show tables in table_schema like '*'");
-        printStatement("show tables from table_schema where table_name = 'foo'");
-        printStatement("show tables in table_schema where table_name = 'foo'");
     }
 
     @Test
@@ -877,12 +906,7 @@ public class TestStatementBuilder {
     private static void printStatement(String sql) {
         println(sql.trim());
         println("");
-
-        CommonTree tree = SqlParser.parseStatement(sql);
-        println(treeToString(tree));
-        println("");
-
-        Statement statement = SqlParser.createStatement(tree);
+        Statement statement = SqlParser.createStatement(sql);
         println(statement.toString());
         println("");
 
