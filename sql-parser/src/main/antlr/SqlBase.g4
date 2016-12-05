@@ -28,6 +28,7 @@ singleExpression
 
 statement
     : query                                                            #statementDefault
+    | showStmt                                                         #show
 //    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
 //        (WITH tableProperties)? AS query
 //        (WITH (NO)? DATA)?                                             #createTableAsSelect
@@ -37,29 +38,45 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                           #dropTable
 //    | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM aliasedRelation (WHERE booleanExpression)?          #delete
-//    | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
-//    | ALTER TABLE tableName=qualifiedName
-//        RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
 //    | ALTER TABLE tableName=qualifiedName
 //        ADD COLUMN column=columnDefinition                             #addColumn
 //    | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | EXPLAIN ANALYZE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
-    | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
-    | SHOW TABLES ((FROM | IN) qualifiedName)?
+    | KILL (ALL | parameterExpression | STRING)                        #killStatement
+    | SET (SESSION | LOCAL)? setAssignment                             #set
+    | UPDATE aliasedRelation SET assignment (',' assignment)*
+        (WHERE where=booleanExpression)?                               #update
+    ;
+
+showStmt
+     : SHOW CREATE TABLE qualifiedName                                 #showCreateTable
+     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=STRING | WHERE where=booleanExpression)?         #showTables
-    | SHOW SCHEMAS
+     | SHOW SCHEMAS
         (LIKE pattern=STRING | WHERE where=booleanExpression)?         #showSchemas
-    | SHOW COLUMNS (FROM | IN) qualifiedName
+     | SHOW COLUMNS (FROM | IN) qualifiedName
         ((FROM | IN) qualifiedName)?
         (LIKE pattern=STRING | WHERE where=booleanExpression)?         #showColumns
-//    | SET SESSION qualifiedName EQ expression                          #setSession
-//    | RESET SESSION qualifiedName                                      #resetSession
-//    | SHOW PARTITIONS (FROM | IN) qualifiedName
-//        (WHERE booleanExpression)?
-//        (ORDER BY sortItem (',' sortItem)*)?
-//        (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
-//    | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+     ;
+
+setAssignment
+    : (name=qualifiedName (EQ | TO) value=setSettingValue)
+    ;
+
+setSettingValue
+    : DEFAULT
+    | setExpression (',' setExpression)*
+    ;
+
+setExpression
+    : ON
+    | identifier
+    | simpleLiteral
+    ;
+
+assignment
+    : valueExpression EQ expression
     ;
 
 query
@@ -244,15 +261,12 @@ valueExpression
     ;
 
 primaryExpression
-    : NULL                                                                                #nullLiteral
-    | interval                                                                            #intervalLiteral
+    : interval                                                                            #intervalLiteral
     | identifier STRING                                                                   #typeConstructor
     | DOUBLE_PRECISION STRING                                                             #typeConstructor
-    | number                                                                              #numericLiteral
-    | booleanValue                                                                        #booleanLiteral
-    | STRING                                                                              #stringLiteral
+    | simpleLiteral                                                                       #simpleLiteralExpression
+    | parameterExpression                                                                 #parameter
     | BINARY_LITERAL                                                                      #binaryLiteral
-    | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     // This case handles both an implicit row constructor or a simple parenthesized
     // expression. We can't make the two separate alternatives because it needs
@@ -261,7 +275,6 @@ primaryExpression
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
-    | identifier '->' expression                                                          #lambda
     | '(' identifier (',' identifier)* ')' '->' expression                                #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
@@ -273,7 +286,7 @@ primaryExpression
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
-    | base=primaryExpression '.' fieldName=identifier                                     #dereference
+    | identifier ('.' identifier)*                                                        #dereference
     | name=CURRENT_DATE                                                                   #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #specialDateTimeFunction
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
@@ -281,6 +294,13 @@ primaryExpression
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
+    ;
+
+simpleLiteral
+    : NULL                                                                                #nullLiteral
+    | number                                                                              #numericLiteral
+    | booleanValue                                                                        #booleanLiteral
+    | STRING                                                                              #stringLiteral
     ;
 
 timeZoneSpecifier
@@ -428,13 +448,21 @@ nonReserved
     | SCHEMA
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
+    | ALWAYS
     ;
 
 normalForm
     : NFD | NFC | NFKD | NFKC
     ;
 
+parameterExpression
+    : '$' INTEGER_VALUE
+    | '?'
+    ;
+
 SELECT: 'SELECT';
+KILL: 'KILL';
+UPDATE: 'UPDATE';
 FROM: 'FROM';
 ADD: 'ADD';
 AS: 'AS';
@@ -508,7 +536,9 @@ RIGHT: 'RIGHT';
 FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
+DEFAULT: 'DEFAULT';
 ON: 'ON';
+ALWAYS: 'ALWAYS';
 FILTER: 'FILTER';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
@@ -574,6 +604,7 @@ MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
+LOCAL: 'LOCAL';
 DATA: 'DATA';
 START: 'START';
 TRANSACTION: 'TRANSACTION';
@@ -682,7 +713,7 @@ fragment DIGIT
     ;
 
 fragment LETTER
-    : [A-Z]
+    : [A-Za-z]
     ;
 
 SIMPLE_COMMENT
