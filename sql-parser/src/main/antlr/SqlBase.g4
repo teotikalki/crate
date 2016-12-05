@@ -35,19 +35,38 @@ statement
 //    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
 //        '(' tableElement (',' tableElement)* ')'
 //        (WITH tableProperties)?                                        #createTable
-    | DROP TABLE (IF EXISTS)? qualifiedName                           #dropTable
 //    | INSERT INTO qualifiedName columnAliases? query                   #insertInto
-    | DELETE FROM aliasedRelation (WHERE booleanExpression)?          #delete
-//    | ALTER TABLE tableName=qualifiedName
-//        ADD COLUMN column=columnDefinition                             #addColumn
-//    | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
+    | DELETE FROM aliasedRelation (WHERE booleanExpression)?           #delete
     | EXPLAIN ANALYZE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
-    | KILL (ALL | parameterExpression | STRING)                        #killStatement
+    | KILL (ALL | parameterOrLiteral)                                  #kill
     | SET (SESSION | LOCAL)? setAssignment                             #set
+    | SET GLOBAL (PERSISTENT | TRANSIENT)?
+        setGlobalAssignment (',' setGlobalAssignment)*                 #setGlobal
+    | RESET GLOBAL valueExpression ( ',' valueExpression)*             #resetGlobal
     | UPDATE aliasedRelation SET assignment (',' assignment)*
         (WHERE where=booleanExpression)?                               #update
+    | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
+    | REFRESH TABLE tableWithPartition (',' tableWithPartition)*       #refreshTable
+    | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDefinition #addColumn
+    | ALTER TABLE alterTableDefinition
+        (SET genericProperties |
+         RESET '(' identifier (',' identifier )* ')')                  #alterTableProperties
+    | ALTER BLOB TABLE alterTableDefinition
+        (SET genericProperties |
+        RESET '(' identifier (',' identifier )* ')')                   #alterBlobTableProperties
     ;
+
+alterTableDefinition
+    : ONLY qualifiedName
+    | tableWithPartition
+    ;
+
+tableWithPartition
+    : qualifiedName (PARTITION '(' assignment (',' assignment)* ')')?
+    ;
+
+// Set LOCAL/SESSION/GLOBAL assignment definitions
 
 showStmt
      : SHOW CREATE TABLE qualifiedName                                 #showCreateTable
@@ -60,16 +79,20 @@ showStmt
         (LIKE pattern=STRING | WHERE where=booleanExpression)?         #showColumns
      ;
 
+setGlobalAssignment
+    : name=valueExpression (EQ | TO) value=valueExpression
+    ;
+
 setAssignment
-    : (name=qualifiedName (EQ | TO) value=setSettingValue)
+    : (name=qualifiedName (EQ | TO) value=settingValue)
     ;
 
-setSettingValue
+settingValue
     : DEFAULT
-    | setExpression (',' setExpression)*
+    | settingExpression (',' settingExpression)*
     ;
 
-setExpression
+settingExpression
     : ON
     | identifier
     | simpleLiteral
@@ -79,33 +102,73 @@ assignment
     : valueExpression EQ expression
     ;
 
+// Constraints definition
+
+primaryKeyConstraint
+    : PRIMARY_KEY columnList
+    ;
+
+columnConstraint
+    : PRIMARY_KEY
+    | NOT NULL
+    | INDEX OFF
+    | INDEX USING indexMethod=identifier (WITH genericProperties)?
+    ;
+
+// Column definition
+
+columnList
+    : '(' valueExpression (',' valueExpression)* ')'
+    ;
+
+columnDefinition
+    : identifier dataType (columnConstraint (columnConstraint)*)?
+    | generatedColumnDefinition
+    ;
+
+generatedColumnDefinition
+    : identifier GENERATED ALWAYS AS expression  (columnConstraint (columnConstraint)*)?
+    | identifier (dataType GENERATED ALWAYS)? AS expression  (columnConstraint (columnConstraint)*)?
+    ;
+
+addColumnDefinition
+    : subscriptSafe dataType (columnConstraint (columnConstraint)*)?
+//    : addGeneratedColumnDefinition
+    ;
+
+addGeneratedColumnDefinition
+    : subscriptSafe (dataType GENERATED ALWAYS)? AS expression columnConstraint
+//    : subscriptSafe GENERATED ALWAYS AS) => subscriptSafe GENERATED ALWAYS AS expr columnConstDef* -> ^(ADD_COLUMN_DEF subscriptSafe expr columnConstDef*) //TODO
+    ;
+
+// Table definition
+
+tableElement
+    : columnDefinition
+    | indexDefinition
+    | primaryKeyConstraint
+    ;
+
+indexDefinition
+    : INDEX identifier USING indexMethod=identifier columnList (WITH genericProperties)?
+    ;
+
+genericProperties
+    : '(' genericProperty (',' genericProperty)* ')'
+    ;
+
+genericProperty
+    : identifier EQ expression
+    ;
+
+// Query
+
 query
     :  with? queryNoWith
     ;
 
 with
     : WITH RECURSIVE? namedQuery (',' namedQuery)*
-    ;
-
-tableElement
-    : columnDefinition
-    | likeClause
-    ;
-
-columnDefinition
-    : identifier type
-    ;
-
-likeClause
-    : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
-    ;
-
-tableProperties
-    : '(' tableProperty (',' tableProperty)* ')'
-    ;
-
-tableProperty
-    : identifier EQ expression
     ;
 
 queryNoWith:
@@ -262,10 +325,9 @@ valueExpression
 
 primaryExpression
     : interval                                                                            #intervalLiteral
+    | parameterOrLiteral                                                                  #parameterOrLiteralExpression
     | identifier STRING                                                                   #typeConstructor
     | DOUBLE_PRECISION STRING                                                             #typeConstructor
-    | simpleLiteral                                                                       #simpleLiteralExpression
-    | parameterExpression                                                                 #parameter
     | BINARY_LITERAL                                                                      #binaryLiteral
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     // This case handles both an implicit row constructor or a simple parenthesized
@@ -281,9 +343,8 @@ primaryExpression
     | EXISTS '(' query ')'                                                                #exists
     | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END              #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
-    | CAST '(' expression AS type ')'                                                     #cast
-    | TRY_CAST '(' expression AS type ')'                                                 #cast
-    | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
+    | CAST '(' expression AS dataType ')'                                                 #cast
+    | TRY_CAST '(' expression AS dataType ')'                                             #cast
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
     | identifier ('.' identifier)*                                                        #dereference
@@ -296,11 +357,27 @@ primaryExpression
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     ;
 
+parameterOrLiteral
+    : simpleLiteral                                                                       #simpleLiteralExpression
+    | parameterExpr                                                                       #parameter
+    | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
+    ;
+
 simpleLiteral
     : NULL                                                                                #nullLiteral
     | number                                                                              #numericLiteral
     | booleanValue                                                                        #booleanLiteral
     | STRING                                                                              #stringLiteral
+    ;
+
+subscriptSafe
+    : value=qualifiedName ('[' index=valueExpression ']')*                                #subscriptSafeLiteral
+    ;
+
+
+parameterExpr
+    : '$' INTEGER_VALUE                                                                   #positionalParameter
+    | '?'                                                                                 #parameterPlaceholder
     ;
 
 timeZoneSpecifier
@@ -328,24 +405,49 @@ intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
-type
-    : type ARRAY
-    | ARRAY '<' type '>'
-    | MAP '<' type ',' type '>'
-    | ROW '(' identifier type (',' identifier type)* ')'
-    | baseType ('(' typeParameter (',' typeParameter)* ')')?
+dataType
+    : STRING_TYPE
+    | BOOLEAN
+    | BYTE
+    | SHORT
+    | INT
+    | INTEGER
+    | LONG
+    | FLOAT
+    | DOUBLE
+    | TIMESTAMP
+    | IP
+    | GEO_POINT
+    | GEO_SHAPE
+    | objectTypeDefinition
+    | arrayTypeDefinition
+    | setTypeDefinition
     ;
 
-typeParameter
-    : INTEGER_VALUE | type
+objectTypeDefinition
+    : OBJECT ( '(' objectType ')' )? objectColumns?
     ;
 
-baseType
-    : TIME_WITH_TIME_ZONE
-    | TIMESTAMP_WITH_TIME_ZONE
-    | DOUBLE_PRECISION
-    | identifier
+arrayTypeDefinition
+    : ARRAY? '(' dataType ')'
     ;
+
+setTypeDefinition
+    : SET '(' dataType ')'
+    ;
+
+
+objectType
+    : DYNAMIC
+    | STRICT
+    | IGNORED
+    ;
+
+objectColumns
+    : AS '(' columnDefinition ( ',' columnDefinition )* ')'
+    ;
+
+//
 
 whenClause
     : WHEN condition=expression THEN result=expression
@@ -400,10 +502,6 @@ callArgument
     | identifier '=>' expression    #namedArgument
     ;
 
-privilege
-    : SELECT | DELETE | INSERT | identifier
-    ;
-
 qualifiedName
     : identifier ('.' identifier)*
     ;
@@ -430,7 +528,7 @@ nonReserved
     | ADD
     | FILTER
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
-    | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
+    | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
@@ -455,13 +553,10 @@ normalForm
     : NFD | NFC | NFKD | NFKC
     ;
 
-parameterExpression
-    : '$' INTEGER_VALUE
-    | '?'
-    ;
 
 SELECT: 'SELECT';
 KILL: 'KILL';
+REFRESH: 'REFRESH';
 UPDATE: 'UPDATE';
 FROM: 'FROM';
 ADD: 'ADD';
@@ -502,12 +597,29 @@ DESC: 'DESC';
 SUBSTRING: 'SUBSTRING';
 POSITION: 'POSITION';
 FOR: 'FOR';
-TINYINT: 'TINYINT';
-SMALLINT: 'SMALLINT';
+
 INTEGER: 'INTEGER';
+BOOLEAN: 'BOOLEAN';
+BYTE: 'BYTE';
+SHORT: 'SHORT';
+INT: 'INT';
+LONG: 'LONG';
+FLOAT: 'FLOAT';
+DOUBLE: 'DOUBLE';
+TIMESTAMP: 'TIMESTAMP';
+IP: 'IP';
+OBJECT: 'OBJECT';
+STRING_TYPE: 'STRING';
+GEO_POINT: 'GEO_POINT';
+GEO_SHAPE: 'GEO_SHAPE';
+
+GLOBAL : 'GLOBAL';
+SESSION : 'SESSION';
+LOCAL : 'LOCAL';
+
+BEGIN: 'BEGIN';
 DATE: 'DATE';
 TIME: 'TIME';
-TIMESTAMP: 'TIMESTAMP';
 INTERVAL: 'INTERVAL';
 YEAR: 'YEAR';
 MONTH: 'MONTH';
@@ -536,9 +648,13 @@ RIGHT: 'RIGHT';
 FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
+INDEX: 'INDEX';
+OFF: 'OFF';
 DEFAULT: 'DEFAULT';
 ON: 'ON';
 ALWAYS: 'ALWAYS';
+GENERATED: 'GENERATED';
+PRIMARY_KEY: 'PRIMARY KEY';
 FILTER: 'FILTER';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
@@ -555,6 +671,7 @@ VALUES: 'VALUES';
 CREATE: 'CREATE';
 SCHEMA: 'SCHEMA';
 TABLE: 'TABLE';
+BLOB: 'BLOB';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
 INSERT: 'INSERT';
@@ -599,12 +716,17 @@ ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
 ORDINALITY: 'ORDINALITY';
+
 ARRAY: 'ARRAY';
 MAP: 'MAP';
 SET: 'SET';
+DYNAMIC: 'DYNAMIC';
+STRICT: 'STRICT';
+IGNORED: 'IGNORED';
+
 RESET: 'RESET';
-SESSION: 'SESSION';
-LOCAL: 'LOCAL';
+PERSISTENT: 'PERSISTENT';
+TRANSIENT: 'TRANSIENT';
 DATA: 'DATA';
 START: 'START';
 TRANSACTION: 'TRANSACTION';

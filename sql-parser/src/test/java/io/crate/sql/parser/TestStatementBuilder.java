@@ -134,7 +134,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testSetSessionAndLocalStmtBuiler() throws Exception {
+    public void testSetStmtBuiler() throws Exception {
         printStatement("set session some_setting = false");
         printStatement("set session some_setting = DEFAULT");
         printStatement("set session some_setting = 1, 2, 3");
@@ -168,6 +168,24 @@ public class TestStatementBuilder {
     }
 
     @Test
+    public void testKillStmtBuilder() {
+        printStatement("kill all");
+        printStatement("kill '6a3d6fb6-1401-4333-933d-b38c9322fca7'");
+        printStatement("kill ?");
+        printStatement("kill $1");
+    }
+
+    @Test
+    public void testRefreshStmtBuilder() {
+        printStatement("refresh table t");
+        printStatement("refresh table t partition (pcol='val'), tableh partition (pcol='val')");
+        printStatement("refresh table schemah.tableh");
+        printStatement("refresh table tableh partition (pcol='val')");
+        printStatement("refresh table tableh partition (pcol=?)");
+        printStatement("refresh table tableh partition (pcol['nested'] = ?)");
+    }
+
+    @Test
     public void testSetSessionInvalidSetting() throws Exception {
         expectedException.expect(ParsingException.class);
         expectedException.expectMessage(containsString("no viable alternative"));
@@ -175,9 +193,43 @@ public class TestStatementBuilder {
     }
 
     @Test
+    public void testSetGlobal() throws Exception {
+        printStatement("set global sys.cluster['some_settings']['3'] = '1'");
+        printStatement("set global sys.cluster['some_settings'] = '1', other_setting = 2");
+        printStatement("set global transient sys.cluster['some_settings'] = '1'");
+        printStatement("set global persistent sys.cluster['some_settings'] = '1'");
+    }
+
+    @Test
+    public void testResetGlobalStmtBuilder() {
+        printStatement("reset global some_setting['nested'], other_setting");
+    }
+
+    @Test
+    public void testAlterTableStmtBuilder() {
+        printStatement("alter table t add column foo integer");
+
+        printStatement("alter table t set (number_of_replicas=4)");
+        printStatement("alter table schema.t set (number_of_replicas=4)");
+        printStatement("alter table t reset (number_of_replicas)");
+        printStatement("alter table t reset (property1, property2, property3)");
+
+        printStatement("alter table t add foo integer");
+        printStatement("alter table t add column foo integer");
+        printStatement("alter table t add foo integer primary key");
+        printStatement("alter table t add foo string index using fulltext");
+        printStatement("alter table t add column foo['x'] integer");
+
+        printStatement("alter table t add column foo['x'] integer");
+        printStatement("alter table t add column foo['x']['y'] object as (z integer)");
+
+        printStatement("alter table t partition (partitioned_col=1) set (number_of_replicas=4)");
+        printStatement("alter table only t set (number_of_replicas=4)");
+    }
+
+    @Test
     public void testStatementBuilder() throws Exception {
         printStatement("select * from foo");
-
 
         printStatement("select * from foo a (x, y, z)");
 
@@ -316,29 +368,6 @@ public class TestStatementBuilder {
         printStatement("create analyzer my_builtin extends builtin WITH (" +
                        "  over='write'" +
                        ")");
-        printStatement("refresh table t");
-        printStatement("refresh table t partition (pcol='val'), tableh partition (pcol='val')");
-        printStatement("refresh table schemah.tableh");
-        printStatement("refresh table tableh partition (pcol='val')");
-        printStatement("refresh table tableh partition (pcol=?)");
-        printStatement("refresh table tableh partition (pcol['nested'] = ?)");
-
-        printStatement("alter table t set (number_of_replicas=4)");
-        printStatement("alter table schema.t set (number_of_replicas=4)");
-        printStatement("alter table t reset (number_of_replicas)");
-        printStatement("alter table t reset (property1, property2, property3)");
-
-        printStatement("alter table t add foo integer");
-        printStatement("alter table t add column foo integer");
-        printStatement("alter table t add foo integer primary key");
-        printStatement("alter table t add foo string index using fulltext");
-
-        printStatement("alter table t add column foo['x'] integer");
-        printStatement("alter table t add column foo['x']['y'] object as (z integer)");
-
-        printStatement("alter table t partition (partitioned_col=1) set (number_of_replicas=4)");
-        printStatement("alter table only t set (number_of_replicas=4)");
-
 
         printStatement("select * from t where 'value' LIKE ANY (col)");
         printStatement("select * from t where 'value' NOT LIKE ANY (col)");
@@ -351,9 +380,6 @@ public class TestStatementBuilder {
         printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1, b = 3");
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = 4");
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = values(b) - 2");
-
-        printStatement("kill all");
-        printStatement("kill '6a3d6fb6-1401-4333-933d-b38c9322fca7'");
     }
 
     @Test
@@ -485,18 +511,6 @@ public class TestStatementBuilder {
         printStatement("insert into foo (wealth, name) select sum(money), name from bar group by name");
         printStatement("insert into foo select sum(money), name from bar group by name");
     }
-
-    @Test
-    public void testSetGlobal() throws Exception {
-        printStatement("set global sys.cluster['some_settings'] = '1'");
-        printStatement("set global sys.cluster['some_settings'] = '1', other_setting = 2");
-        printStatement("set global transient sys.cluster['some_settings'] = '1'");
-        printStatement("set global persistent sys.cluster['some_settings'] = '1'");
-
-        printStatement("reset global some_setting['nested'], other_setting");
-    }
-
-
 
     @Test
     public void testParameterExpressionLimitOffset() throws Exception {

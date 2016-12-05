@@ -44,7 +44,6 @@ public class GenericProperty extends AnalyzerElement {
         this.value = value;
     }
 
-
     public String key() {
         return key;
     }

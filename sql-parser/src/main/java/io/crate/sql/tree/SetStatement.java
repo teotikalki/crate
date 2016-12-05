@@ -93,11 +93,9 @@ public class SetStatement extends Statement {
 
         SetStatement update = (SetStatement) o;
 
-        if (!scope.equals(update.scope)) return false;
-        if (!assignments.equals(update.assignments)) return false;
-        if (!settingType.equals(update.settingType)) return false;
-
-        return true;
+        return scope.equals(update.scope)
+            && assignments.equals(update.assignments)
+            && settingType.equals(update.settingType);
     }
 
     @Override

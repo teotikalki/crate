@@ -20,6 +20,7 @@ import io.crate.sql.parser.antlr.v4.SqlBaseLexer;
 import io.crate.sql.parser.antlr.v4.SqlBaseParser;
 import io.crate.sql.tree.*;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -27,13 +28,12 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 class AstBuilder extends SqlBaseBaseVisitor<Node> {
-    private int parameterPosition = 0;
+    private int parameterPosition = 1;
 
     @Override
     public Node visitSingleStatement(SqlBaseParser.SingleStatementContext context) {
@@ -59,16 +59,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 //            visit(context.tableElement(), TableElement.class),
 //            context.EXISTS() != null,
 //            processTableProperties(context.tableProperties()));
-//    }
-
-//    private Map<String, Expression> processTableProperties(SqlBaseParser.TablePropertiesContext tablePropertiesContext) {
-//        ImmutableMap.Builder<String, Expression> properties = ImmutableMap.builder();
-//        if (tablePropertiesContext != null) {
-//            for (SqlBaseParser.TablePropertyContext tablePropertyContext : tablePropertiesContext.tableProperty()) {
-//                properties.put(tablePropertyContext.identifier().getText(), (Expression) visit(tablePropertyContext.expression()));
-//            }
-//        }
-//        return properties.build();
 //    }
 
     @Override
@@ -107,11 +97,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
-    public Node visitAssignment(SqlBaseParser.AssignmentContext context) {
-        return new Assignment((Expression) visit(context.valueExpression()), (Expression) visit(context.expression()));
-    }
-
-    @Override
     public Node visitSet(SqlBaseParser.SetContext context) {
         if (context.LOCAL() != null) {
             return new SetStatement(SetStatement.Scope.LOCAL, (Assignment) visit(context.setAssignment()));
@@ -121,16 +106,146 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
-    public Node visitSetAssignment(SqlBaseParser.SetAssignmentContext context) {
-        QualifiedNameReference name = new QualifiedNameReference(getQualifiedName(context.name));
-        if (context.setSettingValue().DEFAULT() != null) {
-            return new Assignment(name, ImmutableList.of());
+    public Node visitSetGlobal(SqlBaseParser.SetGlobalContext context) {
+        if (context.PERSISTENT() != null) {
+            return new SetStatement(SetStatement.Scope.GLOBAL,
+                SetStatement.SettingType.PERSISTENT,
+                visit(context.setGlobalAssignment(), Assignment.class)
+            );
+        } else {
+            return new SetStatement(SetStatement.Scope.GLOBAL, visit(context.setGlobalAssignment(), Assignment.class));
         }
-        return new Assignment(name, visit(context.setSettingValue().setExpression(), Expression.class));
     }
 
     @Override
-    public Node visitSetExpression(SqlBaseParser.SetExpressionContext context) {
+    public Node visitKill(SqlBaseParser.KillContext context) {
+        if (context.ALL() != null) {
+            return new KillStatement();
+        }
+        return new KillStatement((Expression) visit(context.parameterOrLiteral()));
+    }
+
+    @Override
+    public Node visitTableWithPartition(SqlBaseParser.TableWithPartitionContext context) {
+        return new Table(getQualifiedName(context.qualifiedName()), visit(context.assignment(), Assignment.class));
+    }
+
+    @Override
+    public Node visitRefreshTable(SqlBaseParser.RefreshTableContext context) {
+        return new RefreshStatement(visit(context.tableWithPartition(), Table.class));
+    }
+
+    @Override
+    public Node visitAlterTableProperties(SqlBaseParser.AlterTablePropertiesContext context) {
+        Table name = (Table) visit(context.alterTableDefinition());
+        if (context.SET() != null) {
+            return new AlterTable(name, (GenericProperties) visit(context.genericProperties()));
+        }
+        return new AlterTable(name, context.identifier().stream().map(RuleContext::getText).collect(toList()));
+    }
+
+    @Override
+    public Node visitAlterBlobTableProperties(SqlBaseParser.AlterBlobTablePropertiesContext context) {
+        Table name = (Table) visit(context.alterTableDefinition());
+        if (context.RESET() != null) {
+            return new AlterTable(name, (GenericProperties) visit(context.genericProperties()));
+        }
+        return new AlterTable(name, context.identifier().stream().map(RuleContext::getText).collect(toList()));
+    }
+
+    @Override
+    public Node visitGenericProperties(SqlBaseParser.GenericPropertiesContext context) {
+        GenericProperties properties = new GenericProperties();
+        context.genericProperty().forEach(p -> properties.add((GenericProperty) visit(p)));
+        return properties;
+    }
+
+    @Override
+    public Node visitGenericProperty(SqlBaseParser.GenericPropertyContext context) {
+        return new GenericProperty(context.identifier().getText(), (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitAlterTableDefinition(SqlBaseParser.AlterTableDefinitionContext context) {
+        if (context.ONLY() != null) {
+            return new Table(getQualifiedName(context.qualifiedName()));
+        } else {
+            return visit(context.tableWithPartition());
+        }
+    }
+
+    @Override
+    public Node visitAddColumn(SqlBaseParser.AddColumnContext context) {
+        return new AlterTableAddColumn(
+            (Table) visit(context.alterTableDefinition()),
+            (AddColumnDefinition) visit(context.addColumnDefinition()));
+    }
+
+    @Override
+    public Node visitAddColumnDefinition(SqlBaseParser.AddColumnDefinitionContext context) {
+        return new AddColumnDefinition(
+            (Expression) visit(context.subscriptSafe()),
+//            visitIfPresent(context(), Expression.class).orElse(null),
+            null,
+            (ColumnType) visit(context.dataType()),
+            visit(context.columnConstraint(), ColumnConstraint.class)
+        );
+    }
+
+    @Override
+    public Node visitColumnConstraint(SqlBaseParser.ColumnConstraintContext context) {
+        if (context.PRIMARY_KEY() != null) {
+            return new PrimaryKeyColumnConstraint();
+        } else if (context.NOT() != null && context.NULL() != null) {
+            return new NotNullColumnConstraint();
+        } else if (context.identifier() != null) {
+            return new IndexColumnConstraint(
+                context.identifier().getText(),
+                (GenericProperties) visit(context.genericProperties())
+            );
+        } else {
+            return IndexColumnConstraint.OFF;
+        }
+    }
+
+    @Override
+    public Node visitDataType(SqlBaseParser.DataTypeContext context) {
+        return null;
+    }
+
+    @Override
+    public Node visitGeneratedColumnDefinition(SqlBaseParser.GeneratedColumnDefinitionContext context) {
+        return null; // TODO
+    }
+
+    @Override
+    public Node visitAddGeneratedColumnDefinition(SqlBaseParser.AddGeneratedColumnDefinitionContext context) {
+        return null; // TODO
+    }
+
+// ********************** assignments ********************
+
+    @Override
+    public Node visitSetGlobalAssignment(SqlBaseParser.SetGlobalAssignmentContext context) {
+        return new Assignment((Expression) visit(context.name), (Expression) visit(context.value));
+    }
+
+    @Override
+    public Node visitAssignment(SqlBaseParser.AssignmentContext context) {
+        return new Assignment((Expression) visit(context.valueExpression()), (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitSetAssignment(SqlBaseParser.SetAssignmentContext context) {
+        QualifiedNameReference name = new QualifiedNameReference(getQualifiedName(context.name));
+        if (context.value.DEFAULT() != null) {
+            return new Assignment(name, ImmutableList.of());
+        }
+        return new Assignment(name, visit(context.value.settingExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitSettingExpression(SqlBaseParser.SettingExpressionContext context) {
         if (context.ON() != null) {
             return BooleanLiteral.TRUE_LITERAL;
         } else if (context.identifier() != null) {
@@ -140,13 +255,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         }
     }
 
-    //    @Override
-//    public Node visitAddColumn(SqlBaseParser.AddColumnContext context) {
-//        return new AddColumn(getLocation(context), getQualifiedName(context.qualifiedName()), (ColumnDefinition) visit(context.columnDefinition()));
-//    }
-//
-//
-//    // ********************** query expressions ********************
+    //    // ********************** query expressions ********************
 //
 //    @Override
 //    public Node visitQuery(SqlBaseParser.QueryContext context) {
@@ -303,11 +412,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 //        return new SingleColumn(getLocation(context), (Expression) visit(context.expression()), alias);
 //    }
 //
-//    @Override
-//    public Node visitTable(SqlBaseParser.TableContext context) {
-//        return new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
-//    }
-//
+    @Override
+    public Node visitTable(SqlBaseParser.TableContext context) {
+        return new Table(getQualifiedName(context.qualifiedName()));
+    }
+
 //    @Override
 //    public Node visitSubquery(SqlBaseParser.SubqueryContext context) {
 //        return new TableSubquery(getLocation(context), (Query) visit(context.queryNoWith()));
@@ -373,17 +482,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         );
     }
 
-//    @Override
-//    public Node visitSetSession(SqlBaseParser.SetSessionContext context) {
-//        return new SetSession(getLocation(context), getQualifiedName(context.qualifiedName()), (Expression) visit(context.expression()));
-//    }
-//
-//    @Override
-//    public Node visitResetSession(SqlBaseParser.ResetSessionContext context) {
-//        return new ResetSession(getLocation(context), getQualifiedName(context.qualifiedName()));
-//    }
-//
-//    // ***************** boolean expressions ******************
+    @Override
+    public Node visitResetGlobal(SqlBaseParser.ResetGlobalContext context) {
+        return new ResetStatement(visit(context.valueExpression(), Expression.class));
+    }
+
+    // ***************** boolean expressions ******************
 
     @Override
     public Node visitLogicalNot(SqlBaseParser.LogicalNotContext context) {
@@ -741,6 +845,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitSubscriptSafeLiteral(SqlBaseParser.SubscriptSafeLiteralContext context) {
+        return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
+    }
+
+    @Override
     public Node visitSubqueryExpression(SqlBaseParser.SubqueryExpressionContext context) {
         return new SubqueryExpression((Query) visit(context.query()));
     }
@@ -757,6 +866,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context) {
         return new QualifiedNameReference(QualifiedName.of(Arrays.asList(context.getText().split("\\."))));
+    }
+
+    @Override
+    public Node visitQualifiedName(SqlBaseParser.QualifiedNameContext context) {
+        return new QualifiedNameReference(QualifiedName.of(context.getText()));
     }
 
     @Override
@@ -846,18 +960,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visit(context.expression(), Expression.class));
     }
 
-//    @Override
-//    public Node visitLambda(SqlBaseParser.LambdaContext context) {
-//        List<LambdaArgumentDeclaration> arguments = context.identifier().stream()
-//            .map(SqlBaseParser.IdentifierContext::getText)
-//            .map(LambdaArgumentDeclaration::new)
-//            .collect(toList());
-//
-//        Expression body = (Expression) visit(context.expression());
-//
-//        return new LambdaExpression(arguments, body);
-//    }
-//
 //    @Override
 //    public Node visitFilter(SqlBaseParser.FilterContext context) {
 //        return visit(context.booleanExpression());
@@ -1003,20 +1105,20 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 //        parameterPosition++;
 //        return parameter;
 //    }
-//
-//    // ***************** arguments *****************
-//
-//    @Override
-//    public Node visitPositionalArgument(SqlBaseParser.PositionalArgumentContext context) {
-//        return new CallArgument(getLocation(context), (Expression) visit(context.expression()));
-//    }
-//
-//    @Override
-//    public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context) {
-//        return new CallArgument(getLocation(context), context.identifier().getText(), (Expression) visit(context.expression()));
-//    }
-//
-//    // ***************** helpers *****************
+
+// ***************** arguments *****************
+
+    @Override
+    public Node visitParameterPlaceholder(SqlBaseParser.ParameterPlaceholderContext context) {
+        return new ParameterExpression(parameterPosition++);
+    }
+
+    @Override
+    public Node visitPositionalParameter(SqlBaseParser.PositionalParameterContext context) {
+        return new ParameterExpression(Integer.valueOf(context.INTEGER_VALUE().getText()));
+    }
+
+// ***************** helpers *****************
 
     @Override
     protected Node defaultResult() {
@@ -1269,58 +1371,58 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 //        throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
 //    }
 
-    private static String getType(SqlBaseParser.TypeContext type) {
-        if (type.baseType() != null) {
-            String signature = type.baseType().getText();
-            if (type.baseType().DOUBLE_PRECISION() != null) {
-                // TODO: Temporary hack that should be removed with new planner.
-                signature = "DOUBLE";
-            }
-            if (!type.typeParameter().isEmpty()) {
-                String typeParameterSignature = type
-                    .typeParameter()
-                    .stream()
-                    .map(AstBuilder::typeParameterToString)
-                    .collect(Collectors.joining(","));
-                signature += "(" + typeParameterSignature + ")";
-            }
-            return signature;
-        }
+//    private static String getType(SqlBaseParser.DataTypeContext type) {
+//        if (type.baseType() != null) {
+//            String signature = type.baseType().getText();
+//            if (type.baseType().DOUBLE_PRECISION() != null) {
+//                 TODO: Temporary hack that should be removed with new planner.
+//                signature = "DOUBLE";
+//            }
+//            if (!type.typeParameter().isEmpty()) {
+//                String typeParameterSignature = type
+//                    .typeParameter()
+//                    .stream()
+//                    .map(AstBuilder::typeParameterToString)
+//                    .collect(Collectors.joining(","));
+//                signature += "(" + typeParameterSignature + ")";
+//            }
+//            return signature;
+//        }
+//
+//        if (type.ARRAY() != null) {
+//            return "ARRAY(" + getType(type.type(0)) + ")";
+//        }
+//
+//        if (type.MAP() != null) {
+//            return "MAP(" + getType(type.type(0)) + "," + getType(type.type(1)) + ")";
+//        }
+//
+//        if (type.ROW() != null) {
+//            StringBuilder builder = new StringBuilder("(");
+//            for (int i = 0; i < type.identifier().size(); i++) {
+//                if (i != 0) {
+//                    builder.append(",");
+//                }
+//                builder.append(type.identifier(i).getText())
+//                    .append(" ")
+//                    .append(getType(type.type(i)));
+//            }
+//            builder.append(")");
+//            return "ROW" + builder.toString();
+//        }
+//
+//        throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
+//    }
 
-        if (type.ARRAY() != null) {
-            return "ARRAY(" + getType(type.type(0)) + ")";
-        }
-
-        if (type.MAP() != null) {
-            return "MAP(" + getType(type.type(0)) + "," + getType(type.type(1)) + ")";
-        }
-
-        if (type.ROW() != null) {
-            StringBuilder builder = new StringBuilder("(");
-            for (int i = 0; i < type.identifier().size(); i++) {
-                if (i != 0) {
-                    builder.append(",");
-                }
-                builder.append(type.identifier(i).getText())
-                    .append(" ")
-                    .append(getType(type.type(i)));
-            }
-            builder.append(")");
-            return "ROW" + builder.toString();
-        }
-
-        throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
-    }
-
-    private static String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter) {
-        if (typeParameter.INTEGER_VALUE() != null) {
-            return typeParameter.INTEGER_VALUE().toString();
-        }
-        if (typeParameter.type() != null) {
-            return getType(typeParameter.type());
-        }
-        throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
-    }
+//    private static String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter) {
+//        if (typeParameter.INTEGER_VALUE() != null) {
+//            return typeParameter.INTEGER_VALUE().toString();
+//        }
+//        if (typeParameter.type() != null) {
+//            return getType(typeParameter.type());
+//        }
+//        throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
+//    }
 
     private static void check(boolean condition, String message, ParserRuleContext context) {
         if (!condition) {
@@ -1338,7 +1440,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return getLocation(parserRuleContext.getStart());
     }
 
-    public static NodeLocation getLocation(Token token) {
+    private static NodeLocation getLocation(Token token) {
         requireNonNull(token, "token is null");
         return new NodeLocation(token.getLine(), token.getCharPositionInLine());
     }
