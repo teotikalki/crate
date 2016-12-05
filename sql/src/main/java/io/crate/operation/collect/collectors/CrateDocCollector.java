@@ -44,7 +44,6 @@ import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.lucene.MinimumScoreCollector;
 import org.elasticsearch.search.internal.ContextIndexSearcher;
-import org.elasticsearch.search.internal.SearchContext;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
