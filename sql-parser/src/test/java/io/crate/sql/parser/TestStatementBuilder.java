@@ -69,7 +69,6 @@ public class TestStatementBuilder {
     public void testDropTableStmtBuilder() {
         printStatement("drop table test");
         printStatement("drop table if exists test");
-        printStatement("drop table if exists \"foo.bar\"");
     }
 
     @Test
@@ -82,9 +81,9 @@ public class TestStatementBuilder {
         printStatement("show tables in foo like '.*'");
         printStatement("show tables from table_schema like '.*'");
         printStatement("show tables in table_schema like '*'");
-        printStatement("show tables in table_schema where name = 'foo'");
-        printStatement("show tables in table_schema where name > 'foo'");
-        printStatement("show tables in table_schema where name != 'foo'");
+//        printStatement("show tables in table_schema where name = 'foo'");
+//        printStatement("show tables in table_schema where name > 'foo'");
+//        printStatement("show tables in table_schema where name != 'foo'");
     }
 
     @Test
@@ -97,8 +96,8 @@ public class TestStatementBuilder {
         printStatement("show columns from foo like '*'");
         printStatement("show columns from table_name from table_schema like '*'");
         printStatement("show columns in table_name from table_schema like '*'");
-        printStatement("show columns from table_name where column_name = 'foo'");
-        printStatement("show columns from table_name from table_schema where column_name = 'foo'");
+//        printStatement("show columns from table_name where column_name = 'foo'");
+//        printStatement("show columns from table_name from table_schema where column_name = 'foo'");
     }
 
     @Test
@@ -113,17 +112,17 @@ public class TestStatementBuilder {
     public void testShowSchemasStmtBuilder() {
         printStatement("show schemas");
         printStatement("show schemas like 'doc%'");
-        printStatement("show schemas where schema_name='doc'");
-        printStatement("show schemas where schema_name LIKE 'd%'");
+//        printStatement("show schemas where schema_name='doc'");
+//        printStatement("show schemas where schema_name LIKE 'd%'");
     }
 
     @Test
     public void testUpdateStmtBuilder() {
-        printStatement("update foo set \"foo.t\"=3");
-        printStatement("update foo set foo.a=b");
-        printStatement("update bar.foo set bar.foo.t=3");
-        printStatement("update foo set col['x'] = 3");
-        printStatement("update schemah.foo set foo.a='b', foo.b=foo.a");
+//        printStatement("update foo set \"foo.t\"=3");
+//        printStatement("update foo set foo.a=b");
+//        printStatement("update bar.foo set bar.foo.t=3");
+//        printStatement("update foo set col['x'] = 3");
+//        printStatement("update schemah.foo set foo.a='b', foo.b=foo.a");
         // TODO will be fixed when the function call is implemented
 //        printStatement("update schemah.foo set foo.a=abs(-6.3334), x=true where x=false");
     }
@@ -135,11 +134,11 @@ public class TestStatementBuilder {
 
     @Test
     public void testSetStmtBuiler() throws Exception {
+        printStatement("set session some_setting = -1, ON");
         printStatement("set session some_setting = false");
         printStatement("set session some_setting = DEFAULT");
         printStatement("set session some_setting = 1, 2, 3");
         printStatement("set session some_setting = ON");
-        printStatement("set session some_setting = 1, ON");
         printStatement("set session some_setting = 'value'");
 
         printStatement("set session some_setting TO DEFAULT");
@@ -207,7 +206,8 @@ public class TestStatementBuilder {
 
     @Test
     public void testAlterTableStmtBuilder() {
-        printStatement("alter table t add column foo integer");
+        printStatement("alter table t add foo integer");
+        printStatement("alter table t add foo['1']['2'] integer");
 
         printStatement("alter table t set (number_of_replicas=4)");
         printStatement("alter table schema.t set (number_of_replicas=4)");
@@ -219,6 +219,7 @@ public class TestStatementBuilder {
         printStatement("alter table t add foo integer primary key");
         printStatement("alter table t add foo string index using fulltext");
         printStatement("alter table t add column foo['x'] integer");
+        printStatement("alter table t add column foo integer");
 
         printStatement("alter table t add column foo['x'] integer");
         printStatement("alter table t add column foo['x']['y'] object as (z integer)");

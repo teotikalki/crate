@@ -70,7 +70,7 @@ public class SqlParser {
     }
 
     public static String createIdentifier(String expression) throws Exception {
-        SqlBaseParser.IdentifierContext sqlBaseParser = getParser(expression).identifier();
+        SqlBaseParser.IdentContext sqlBaseParser = getParser(expression).ident();
         if (sqlBaseParser.exception != null) {
             throw new Exception();
         }
@@ -166,6 +166,7 @@ public class SqlParser {
                 token.getStartIndex() + 1,
                 token.getStopIndex() - 1));
         }
+
 
         @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context) {
