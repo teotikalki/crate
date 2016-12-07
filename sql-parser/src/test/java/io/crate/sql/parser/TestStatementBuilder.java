@@ -81,9 +81,9 @@ public class TestStatementBuilder {
         printStatement("show tables in foo like '.*'");
         printStatement("show tables from table_schema like '.*'");
         printStatement("show tables in table_schema like '*'");
-//        printStatement("show tables in table_schema where name = 'foo'");
-//        printStatement("show tables in table_schema where name > 'foo'");
-//        printStatement("show tables in table_schema where name != 'foo'");
+        printStatement("show tables in table_schema where name = 'foo'");
+        printStatement("show tables in table_schema where name > 'foo'");
+        printStatement("show tables in table_schema where name != 'foo'");
     }
 
     @Test
@@ -96,8 +96,8 @@ public class TestStatementBuilder {
         printStatement("show columns from foo like '*'");
         printStatement("show columns from table_name from table_schema like '*'");
         printStatement("show columns in table_name from table_schema like '*'");
-//        printStatement("show columns from table_name where column_name = 'foo'");
-//        printStatement("show columns from table_name from table_schema where column_name = 'foo'");
+        printStatement("show columns from table_name where column_name = 'foo'");
+        printStatement("show columns from table_name from table_schema where column_name = 'foo'");
     }
 
     @Test
@@ -112,19 +112,18 @@ public class TestStatementBuilder {
     public void testShowSchemasStmtBuilder() {
         printStatement("show schemas");
         printStatement("show schemas like 'doc%'");
-//        printStatement("show schemas where schema_name='doc'");
-//        printStatement("show schemas where schema_name LIKE 'd%'");
+        printStatement("show schemas where schema_name='doc'");
+        printStatement("show schemas where schema_name LIKE 'd%'");
     }
 
     @Test
     public void testUpdateStmtBuilder() {
-//        printStatement("update foo set \"foo.t\"=3");
-//        printStatement("update foo set foo.a=b");
-//        printStatement("update bar.foo set bar.foo.t=3");
-//        printStatement("update foo set col['x'] = 3");
-//        printStatement("update schemah.foo set foo.a='b', foo.b=foo.a");
-        // TODO will be fixed when the function call is implemented
-//        printStatement("update schemah.foo set foo.a=abs(-6.3334), x=true where x=false");
+        printStatement("update foo set foo.a=b");
+        printStatement("update bar.foo set bar.foo.t=3");
+        printStatement("update foo set col['x'] = 3");
+        printStatement("update foo set col['x'] = 3 where foo['x'] = 2");
+        printStatement("update schemah.foo set foo.a='b', foo.b=foo.a");
+        printStatement("update schemah.foo set foo.a=abs(-6.3334), x=true where x=false");
     }
 
     @Test
@@ -134,7 +133,7 @@ public class TestStatementBuilder {
 
     @Test
     public void testSetStmtBuiler() throws Exception {
-        printStatement("set session some_setting = -1, ON");
+        printStatement("set session some_setting = 1, ON");
         printStatement("set session some_setting = false");
         printStatement("set session some_setting = DEFAULT");
         printStatement("set session some_setting = 1, 2, 3");
@@ -182,6 +181,21 @@ public class TestStatementBuilder {
         printStatement("refresh table tableh partition (pcol='val')");
         printStatement("refresh table tableh partition (pcol=?)");
         printStatement("refresh table tableh partition (pcol['nested'] = ?)");
+    }
+
+    @Test
+    public void testOptimize() throws Exception {
+        printStatement("optimize table t");
+        printStatement("optimize table t1, t2");
+        printStatement("optimize table schema.t");
+        printStatement("optimize table schema.t1, schema.t2");
+        printStatement("optimize table t partition (pcol='val')");
+        printStatement("optimize table t partition (pcol=?)");
+        printStatement("optimize table t partition (pcol['nested'] = ?)");
+        printStatement("optimize table t partition (pcol='val') with (param1=val1, param2=val2)");
+        printStatement("optimize table t1 partition (pcol1='val1'), t2 partition (pcol2='val2')");
+        printStatement("optimize table t1 partition (pcol1='val1'), t2 partition (pcol2='val2') " +
+            "with (param1=val1, param2=val2, param3='val3')");
     }
 
     @Test
@@ -605,21 +619,6 @@ public class TestStatementBuilder {
                        "    col1 geo_shape INDEX OFF," +
                        "    index geo_shape_i using quadtree(col1) with (precision='1m')" +
                        ")");
-    }
-
-    @Test
-    public void testOptimize() throws Exception {
-        printStatement("optimize table t");
-        printStatement("optimize table t1, t2");
-        printStatement("optimize table schema.t");
-        printStatement("optimize table schema.t1, schema.t2");
-        printStatement("optimize table t partition (pcol='val')");
-        printStatement("optimize table t partition (pcol=?)");
-        printStatement("optimize table t partition (pcol['nested'] = ?)");
-        printStatement("optimize table t partition (pcol='val') with (param1=val1, param2=val2)");
-        printStatement("optimize table t1 partition (pcol1='val1'), t2 partition (pcol2='val2')");
-        printStatement("optimize table t1 partition (pcol1='val1'), t2 partition (pcol2='val2') " +
-                       "with (param1=val1, param2=val2, param3='val3')");
     }
 
     @Test

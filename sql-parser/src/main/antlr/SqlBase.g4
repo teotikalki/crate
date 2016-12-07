@@ -89,13 +89,13 @@ statement
     | RESET GLOBAL columnList                                                               #resetGlobal
     | OPTIMIZE TABLE tableWithPartitionList (WITH '(' genericProperties ')' )?              #optimize
     | REFRESH TABLE tableWithPartitionList                                                  #refreshTable
-    | UPDATE aliasedRelation SET assignment ( ',' assignment )* whereClause?                   #update
-    | DELETE FROM aliasedRelation whereClause?                                                 #delete
+    | UPDATE aliasedRelation SET assignment ( ',' assignment )* whereClause?                #update
+    | DELETE FROM aliasedRelation whereClause?                                              #delete
     | SHOW CREATE TABLE table                                                               #showCreateTable
-    | SHOW TABLES ((FROM | IN) qname)?  (LIKE pattern=STRING | whereClause)?                #showTables
-    | SHOW SCHEMAS  (LIKE pattern=STRING | whereClause)?                                    #showSchemas
+    | SHOW TABLES ((FROM | IN) qname)? (LIKE pattern=stringLiteral | where=whereClause)?    #showTables
+    | SHOW SCHEMAS (LIKE pattern=stringLiteral | where=whereClause)?                        #showSchemas
     | SHOW COLUMNS (FROM | IN) qname ((FROM | IN) qname)?
-        (LIKE pattern=STRING | whereClause)?  #showColumns
+        (LIKE pattern=stringLiteral | where=whereClause)?                                   #showColumns
     | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDefinition                      #addColumn
     | ALTER TABLE alterTableDefinition (SET '(' genericProperties ')' | RESET identList)    #alterTableProperties
     | ALTER TABLE alterTableDefinition (SET '(' genericProperties ')' | RESET identList)    #alterBlobTableProperties
@@ -301,48 +301,93 @@ aliasedColumns
     ;
 
 expr
-    : orExpression
+    : booleanExpression
     ;
 
-orExpression
-    : andExpression (OR andExpression)*
+booleanExpression
+    : predicated                                                   #booleanDefault
+    | NOT booleanExpression                                        #logicalNot
+    | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
+    | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
     ;
 
-andExpression
-    : notExpression (AND notExpression)*
+predicated
+    : valueExpression predicate[$valueExpression.ctx]?
     ;
 
-notExpression
-    : (NOT)* booleanTest
+predicate[ParserRuleContext value]
+    : cmpOp right=valueExpression                                         #comparison
+    | cmpOp setCmpQuantifier '(' query ')'                                #quantifiedComparison
+    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
+    | NOT? IN '(' expr (',' expr)* ')'                                    #inList
+    | NOT? IN '(' query ')'                                               #inSubquery
+    | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
+    | IS NOT? NULL                                                        #nullPredicate
+    | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     ;
 
-booleanTest
-    : booleanPrimary
+valueExpression
+    : numericExpr                                                                       #valueExpressionDefault
+    | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
+    | left=valueExpression CONCAT right=valueExpression                                 #concatenation
     ;
 
-booleanPrimary
-    : predicate
-    | EXISTS subquery
+numericExpr
+    : parameterOrLiteral                                                             #defaultParamOrLiteral
+    | qname '(' ASTERISK ')' over?                                                   #functionCall
+    | ident                                                                          #columnReference
+    | qname '(' (setQuant? expr (',' expr)*)? ')' over?                              #functionCall
+    | '(' query ')'                                                                  #subqueryExpression
+    // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
+    | EXISTS '(' query ')'                                                           #exists
+    | value=numericExpr '[' index=valueExpression ']'                                #subscript
+    | ident ('.' ident)*                                                             #dereference
+    | name=CURRENT_DATE                                                              #specialDateTimeFunction
+    | name=CURRENT_TIME ('(' precision=integer')')?                                  #specialDateTimeFunction
+    | name=CURRENT_TIMESTAMP ('(' precision=integer')')?                             #specialDateTimeFunction
+    | CURRENT_SCHEMA ('(' ')')?                                                      #currentSchema
+    | SUBSTRING '(' expr FROM expr (FOR expr)? ')'                                   #substring
+    | EXTRACT '(' identExpr FROM field=expr ')'                                      #extract
+    | CAST '(' expr AS dataType ')'                                                  #cast
+    | TRY_CAST '(' expr AS dataType ')'                                              #cast
+    | CASE valueExpression whenClause+ (ELSE elseExpression=expr)? END               #simpleCase
+    | CASE whenClause+ (ELSE elseExpression=expr)? END                               #searchedCase
+    | IF '(' expr ',' expr (',' expr)? ')'                                           #ifCase
     ;
 
-predicate
-//    : (MATCH) => matchPredicate
-    : ((predicatePrimary )
-      ( cmpOp quant=setCmpQuantifier '(' e=predicatePrimary ')'
-//      | (LIKE setCmpQuantifier) => LIKE quant=setCmpQuantifier '(' e=predicatePrimary ')' (ESCAPE x=predicatePrimary)?
-      | LIKE e=predicatePrimary (ESCAPE x=predicatePrimary)?
-//      | (NOT LIKE setCmpQuantifier) => NOT LIKE quant=setCmpQuantifier '(' e=predicatePrimary ')' (ESCAPE x=predicatePrimary)?
-      | NOT LIKE e=predicatePrimary (ESCAPE x=predicatePrimary)?
-      | cmpOp e=predicatePrimary
-      | IS DISTINCT FROM e=predicatePrimary
-      | IS NOT DISTINCT FROM e=predicatePrimary
-      | BETWEEN min=predicatePrimary AND max=predicatePrimary
-      | NOT BETWEEN min=predicatePrimary AND max=predicatePrimary
-      | IS NULL
-      | IS NOT NULL
-//      | IN inList
-//      | NOT IN inList
-      )*)
+identExpr
+    : parameterOrSimpleLiteral
+    | ident
+    ;
+
+parameterOrLiteral
+    : parameterOrSimpleLiteral
+    | dateLiteral
+    | arrayLiteral
+    | objectLiteral
+    ;
+
+parameterOrSimpleLiteral
+    : nullLiteral
+    | stringLiteral
+    | numericLiteral
+    | booleanLiteral
+    | parameterExpr
+    ;
+
+parameterExpr
+    : '$' integer                                                                    #positionalParameter
+    | '?'                                                                            #parameterPlaceholder
+    ;
+
+nullLiteral
+    : NULL
+    ;
+
+stringLiteral
+    : STRING
     ;
 
 //matchPredicate
@@ -359,101 +404,43 @@ predicate
 //    ;
 
 // TDODO primaryExpression!!!!!
-predicatePrimary
-    : (numericExpr )
+//predicatePrimary
+//    : (numericExpr )
 //      ( '||' e=numericExpr -> ^(FUNCTION_CALL ^(QNAME IDENT["concat"]) $predicatePrimary $e) )*
-    ;
-
-
-numericExpr
-    : numericTerm (('+' | '-') numericTerm)*
-    ;
-//
-numericTerm
-    : numericFactor (('*' | '/' | '%') numericFactor)*
-    ;
-
-numericFactor
-    : subscript
-    | '+' numericFactor
-    | '-' numericFactor
-    ;
-
-subscript
-    : value=exprPrimary ('[' index=numericExpr ']')*
-    ;
+//    ;
 
 subscriptSafe
-    : value=qname ('[' index=numericExpr ']')*
+    : qname ('[' numericExpr ']')*
     ;
 
-exprPrimary
-    : simpleExpr
-    | caseExpression
-    | '(' expr ')'
-//    | subquery
+over
+    : OVER '(' window ')'
     ;
 
-simpleExpr
-    : nullLiteral
-    | dateLiteral
-    | arrayLiteral
-    | qnameOrFunction
-    | specialFunction
-    | number
-    | parameterExpr
-    | boolLiteral
-    | stringLiteral
+window
+    : p=windowPartition? o=orderClause? f=windowFrame?
     ;
 
-stringLiteral
-    : STRING
+windowPartition
+    : PARTITION BY expr (',' expr)*
     ;
 
-nullLiteral
-    : NULL
+windowFrame
+    : RANGE frameBound
+    | ROWS frameBound
+    | RANGE BETWEEN frameBound AND frameBound
+    | ROWS BETWEEN frameBound AND frameBound
     ;
 
-identExpr
-    : parameterOrSimpleLiteral
-    | ident
+frameBound
+    : UNBOUNDED PRECEDING
+    | UNBOUNDED FOLLOWING
+    | CURRENT ROW
+    | expr
+      ( PRECEDING
+      | FOLLOWING
+      )
     ;
-
-parameterOrLiteral
-    : parameterOrSimpleLiteral
-    | arrayLiteral
-    ;
-
-parameterOrSimpleLiteral
-    : nullLiteral
-    | numericLiteral
-    | parameterExpr
-    | boolLiteral
-    | stringLiteral
-    ;
-
-
-qnameOrFunction
-    : qname
-//      ( ('(' '*' ')' over?                          -> ^(FUNCTION_CALL $qnameOrFunction over?))
-//      | ('(' setQuant? expression? (',' expression)* ')' over?  -> ^(FUNCTION_CALL $qnameOrFunction over? setQuant? expression*))
-//      )?
-    ;
-
-numericLiteral
-    : '+'? number
-    | '-' number
-    ;
-
-parameterExpr
-    : '$' integer                                                                    #positionalParameter
-    | '?'                                                                            #parameterPlaceholder
-    ;
-
-//inList
-//    : ('(' expression) => ('(' expression (',' expression)* ')' -> ^(IN_LIST expression+))
-//    : subquery
-//    ;
 
 sortItem
     : expr ordering nullOrdering?
@@ -491,33 +478,12 @@ nonSecond
     : YEAR | MONTH | DAY | HOUR | MINUTE
     ;
 
-specialFunction
-    : CURRENT_DATE
-    | CURRENT_TIME ('(' integer ')')?
-    | CURRENT_TIMESTAMP ('(' integer ')')?
-    | CURRENT_SCHEMA ('(' ')')?
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')'
-    | EXTRACT '(' identExpr FROM expr ')'
-    | CAST '(' expr AS dataType ')'
-    | TRY_CAST '(' expr AS dataType ')'
-    ;
-
-caseExpression
-    : CASE expr whenClause+ elseClause? END
-    | CASE whenClause+ elseClause? END
-    | IF '(' expr ',' expr (',' expr)? ')'
-    ;
-
 whenClause
-    : WHEN expr THEN expr
+    : WHEN condition=expr THEN result=expr
     ;
 
 elseClause
     : ELSE expr
-    ;
-
-likeOrWhere
-    : LIKE pattern=STRING | whereClause
     ;
 
 viewRefresh
@@ -548,12 +514,12 @@ quotedIdentifier
     : QUOTED_IDENTIFIER
     ;
 
-number
+numericLiteral
     : DECIMAL_VALUE                                                                  #decimalLiteral
     | INTEGER_VALUE                                                                  #integerLiteral
     ;
 
-boolLiteral
+booleanLiteral
     : TRUE
     | FALSE
     ;
@@ -570,7 +536,7 @@ arrayLiteral
     : ARRAY? '[' ( expr (',' expr)* )? ']'
     ;
 
-object
+objectLiteral
     : '{' (objectKeyValue (',' objectKeyValue)* )? '}'
     ;
 
@@ -630,7 +596,7 @@ createStatement
 
 createTableStmt
     : ( IF NOT EXISTS )? table
-      tableElementList
+      '(' tableElement (',' tableElement)* ')'
       crateTableOption*
       (WITH '(' genericProperties ')' )?
     ;
@@ -670,9 +636,6 @@ crateTableOption
     | partitionedBy
     ;
 
-tableElementList
-    : '(' tableElement (',' tableElement)* ')'
-    ;
 
 tableElement
     :   columnDefinition
@@ -682,21 +645,21 @@ tableElement
 
 addColumnDefinition
     : addGeneratedColumnDefinition
-    | subscriptSafe dataType columnConstDef*
+    | subscriptSafe dataType columnConstraint*
     ;
 
 columnDefinition
     : generatedColumnDefinition
-    | ident dataType columnConstDef*
+    | ident dataType columnConstraint*
     ;
 
 generatedColumnDefinition
-    : ident GENERATED ALWAYS AS expr columnConstDef*
-    | ident (dataType GENERATED ALWAYS)? AS expr columnConstDef*
+    : ident GENERATED ALWAYS AS expr columnConstraint*
+    | ident (dataType GENERATED ALWAYS)? AS expr columnConstraint*
     ;
 
 addGeneratedColumnDefinition
-    : subscriptSafe (dataType GENERATED ALWAYS)? AS expr columnConstDef*
+    : subscriptSafe (dataType GENERATED ALWAYS)? AS expr columnConstraint*
 //    : (subscriptSafe GENERATED ALWAYS AS) => subscriptSafe GENERATED ALWAYS AS expression columnConstDef*
     ;
 
@@ -741,11 +704,7 @@ objectColumns
     : AS '(' columnDefinition ( ',' columnDefinition )* ')'
     ;
 
-columnConstDef
-    : columnConst
-    ;
-
-columnConst
+columnConstraint
     : PRIMARY_KEY
     | NOT NULL
     | columnIndexConstraint
@@ -839,8 +798,8 @@ setExprList
 
 setExpr
     : stringLiteral
+    | booleanLiteral
     | numericLiteral
-    | boolLiteral
     | ident
     | on
     ;
@@ -1106,7 +1065,7 @@ fragment DIGIT
     ;
 
 fragment LETTER
-    : 'A'..'Z'
+    : [A-Za-z]
     ;
 
 COMMENT
