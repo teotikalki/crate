@@ -174,6 +174,18 @@ public class TestStatementBuilder {
     }
 
     @Test
+    public void testKillJob() {
+        KillStatement stmt = (KillStatement) SqlParser.createStatement("KILL $1");
+        assertThat(stmt.jobId().isPresent(), is(true));
+    }
+
+    @Test
+    public void testKillAll() throws Exception {
+        Statement stmt = SqlParser.createStatement("KILL ALL");
+        assertTrue(stmt.equals(new KillStatement()));
+    }
+
+    @Test
     public void testRefreshStmtBuilder() {
         printStatement("refresh table t");
         printStatement("refresh table t partition (pcol='val'), tableh partition (pcol='val')");
@@ -301,6 +313,50 @@ public class TestStatementBuilder {
         printStatement("create table test (col1 int, col2 timestamp) clustered by (col2) partitioned by (col1)");
         printStatement("create table test (col1 int, col2 object as (col3 timestamp)) partitioned by (col2['col3'])");
     }
+
+    @Test
+    public void testBlobTable() throws Exception {
+        printStatement("create blob table screenshots");
+        printStatement("create blob table screenshots clustered into 5 shards");
+        printStatement("create blob table screenshots with (number_of_replicas=3)");
+        printStatement("create blob table screenshots with (number_of_replicas='0-all')");
+        printStatement("create blob table screenshots clustered into 5 shards with (number_of_replicas=3)");
+
+        printStatement("drop blob table screenshots");
+
+        printStatement("alter blob table screenshots set (number_of_replicas=3)");
+        printStatement("alter blob table screenshots set (number_of_replicas='0-all')");
+        printStatement("alter blob table screenshots reset (number_of_replicas)");
+    }
+
+    @Test
+    public void testCreateAnalyzerStmtBuilder() {
+        printStatement("create analyzer myAnalyzer ( tokenizer german )");
+        printStatement("create analyzer my_analyzer (" +
+            " token_filters (" +
+            "   filter_1," +
+            "   filter_2," +
+            "   filter_3 WITH (" +
+            "     \"key\"=?" +
+            "   )" +
+            " )," +
+            " tokenizer my_tokenizer WITH (" +
+            "   property='value'," +
+            "   property_list=['l', 'i', 's', 't']" +
+            " )," +
+            " char_filters (" +
+            "   filter_1," +
+            "   filter_2 WITH (" +
+            "     key='property'" +
+            "   )," +
+            "   filter_3" +
+            " )" +
+            ")");
+        printStatement("create analyzer my_builtin extends builtin WITH (" +
+            "  over='write'" +
+            ")");
+    }
+
     @Test
     public void testStatementBuilder() throws Exception {
         printStatement("select * from foo");
@@ -361,46 +417,16 @@ public class TestStatementBuilder {
         printStatement("select * from foo limit 100 offset 20");
         printStatement("select * from foo offset 20");
 
-        printStatement("create analyzer myAnalyzer ( tokenizer german )");
-        printStatement("create analyzer my_analyzer (" +
-                       " token_filters (" +
-                       "   filter_1," +
-                       "   filter_2," +
-                       "   filter_3 WITH (" +
-                       "     \"key\"=?" +
-                       "   )" +
-                       " )," +
-                       " tokenizer my_tokenizer WITH (" +
-                       "   property='value'," +
-                       "   property_list=['l', 'i', 's', 't']" +
-                       " )," +
-                       " char_filters (" +
-                       "   filter_1," +
-                       "   filter_2 WITH (" +
-                       "     key='property'" +
-                       "   )," +
-                       "   filter_3" +
-                       " )" +
-                       ")");
-        printStatement("create analyzer my_builtin extends builtin WITH (" +
-                       "  over='write'" +
-                       ")");
-
         printStatement("select * from t where 'value' LIKE ANY (col)");
         printStatement("select * from t where 'value' NOT LIKE ANY (col)");
         printStatement("select * from t where 'source' ~ 'pattern'");
         printStatement("select * from t where 'source' !~ 'pattern'");
         printStatement("select * from t where source_column ~ pattern_column");
         printStatement("select * from t where ? !~ ?");
-
-        printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1");
-        printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1, b = 3");
-        printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = 4");
-        printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = values(b) - 2");
     }
 
     @Test
-    public void testSystemInformationFunctions() {
+    public void testSystemInformationFunctionsStmtBuilder() {
         printStatement("select current_schema");
         printStatement("select current_schema()");
         printStatement("select * from information_schema.tables where table_schema = current_schema");
@@ -408,8 +434,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testStatementBuilderTpch()
-        throws Exception {
+    public void testStatementBuilderTpch() throws Exception {
         printTpchQuery(1, 3);
         printTpchQuery(2, 33, "part type like", "region name");
         printTpchQuery(3, "market segment", "2013-03-05");
@@ -447,7 +472,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testArrayConstructor() {
+    public void testArrayConstructorStmtBuilder() {
         printStatement("select []");
         printStatement("select [ARRAY[1]]");
         printStatement("select ARRAY[]");
@@ -476,21 +501,6 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testBlobTable() throws Exception {
-        printStatement("create blob table screenshots");
-        printStatement("create blob table screenshots clustered into 5 shards");
-        printStatement("create blob table screenshots with (number_of_replicas=3)");
-        printStatement("create blob table screenshots with (number_of_replicas='0-all')");
-        printStatement("create blob table screenshots clustered into 5 shards with (number_of_replicas=3)");
-
-        printStatement("drop blob table screenshots");
-
-        printStatement("alter blob table screenshots set (number_of_replicas=3)");
-        printStatement("alter blob table screenshots set (number_of_replicas='0-all')");
-        printStatement("alter blob table screenshots reset (number_of_replicas)");
-    }
-
-    @Test
     public void testCopy() throws Exception {
         printStatement("copy foo partition (a='x') from ?");
         printStatement("copy foo partition (a={key='value'}) from ?");
@@ -512,7 +522,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testInsert() throws Exception {
+    public void testInsertStmtBuilder() throws Exception {
         printStatement("insert into foo (id, name) values ('string', 1.2)");
         printStatement("insert into foo values ('string', NULL)");
         printStatement("insert into foo (id, name) values ('string', 1.2), (abs(-4), 4+?)");
@@ -527,6 +537,11 @@ public class TestStatementBuilder {
         printStatement("insert into foo (id, name) select * from bar limit 3 offset 10");
         printStatement("insert into foo (wealth, name) select sum(money), name from bar group by name");
         printStatement("insert into foo select sum(money), name from bar group by name");
+        
+        printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1");
+        printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1, b = 3");
+        printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = 4");
+        printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = values(b) - 2");
     }
 
     @Test
@@ -547,7 +562,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testRepository() throws Exception {
+    public void testRepositoryStmtBuilder() throws Exception {
         printStatement("create repository my_repo type hdfs");
         printStatement("CREATE REPOSITORY \"myRepo\" TYPE \"fs\"");
         printStatement("CREATE REPOSITORY \"myRepo\" TYPE \"fs\" with (location='/mount/backups/my_backup', compress=True)");
@@ -564,7 +579,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testSnapshot() throws Exception {
+    public void testSnapshotStmtBuilder() throws Exception {
         printStatement("CREATE SNAPSHOT my_repo.my_snapshot ALL");
         printStatement("CREATE SNAPSHOT my_repo.my_snapshot TABLE authors, books");
         printStatement("CREATE SNAPSHOT my_repo.my_snapshot TABLE authors, books with (wait_for_completion=True)");
@@ -580,8 +595,7 @@ public class TestStatementBuilder {
                                             "Table{only=false, books, partitionProperties=[]}])}"));
 
         statement = SqlParser.createStatement("DROP SNAPSHOT my_repo.my_snapshot");
-        assertThat(statement.toString(), is("DropSnapshot{" +
-                                            "name=my_repo.my_snapshot}"));
+        assertThat(statement.toString(), is("DropSnapshot{name=my_repo.my_snapshot}"));
 
         printStatement("RESTORE SNAPSHOT my_repo.my_snapshot ALL");
         printStatement("RESTORE SNAPSHOT my_repo.my_snapshot TABLE authors, books");
@@ -605,7 +619,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testGeoShape() throws Exception {
+    public void testGeoShapeStmtBuilder() throws Exception {
         printStatement("create table test (" +
                        "    col1 geo_shape," +
                        "    col2 geo_shape index using geohash" +
@@ -806,18 +820,6 @@ public class TestStatementBuilder {
             }
         }, null);
         assertEquals(3, counter.get());
-    }
-
-    @Test
-    public void testKillJob() {
-        KillStatement stmt = (KillStatement) SqlParser.createStatement("KILL $1");
-        assertThat(stmt.jobId().isPresent(), is(true));
-    }
-
-    @Test
-    public void testKillAll() throws Exception {
-        Statement stmt = SqlParser.createStatement("KILL ALL");
-        assertTrue(stmt.equals(new KillStatement()));
     }
 
     @Test
