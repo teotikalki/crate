@@ -102,19 +102,18 @@ statement
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
     | INSERT INTO table identList? insertSource onDuplicateKey?                             #insert
-    | dropStmt                                                                              #drop
     | RESTORE qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?           #restore
-    | createStmt                                                                            #create
 //    | COPY copyStatement
-//    | SET setStmt
+    | dropStmt                                                                              #drop
+    | createStmt                                                                            #create
     ;
 
 dropStmt
-	: DROP TABLE (IF EXISTS)? table                                                         #dropTable
-	| DROP BLOB TABLE ( IF EXISTS )? table                                                  #dropBlobTable
-	| DROP ALIAS qname                                                                      #dropAlias
-	| DROP REPOSITORY repository                                                            #dropRepository
-	| DROP SNAPSHOT qname                                                                   #dropSnapshot
+	: DROP BLOB TABLE (IF EXISTS)? table                                                    #dropBlobTable
+	| DROP TABLE (IF EXISTS)? table                                                         #dropTable
+	| DROP ALIAS name=qname                                                                 #dropAlias
+	| DROP REPOSITORY name=ident                                                            #dropRepository
+	| DROP SNAPSHOT name=qname                                                              #dropSnapshot
 	;
 
 query
@@ -258,10 +257,6 @@ tableWithPartition
 table
     : qname
     | ident '(' parameterOrLiteral? (',' parameterOrLiteral)* ')'
-    ;
-
-repository
-    : ident
     ;
 
 tableOnly

@@ -91,6 +91,26 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitDropRepository(SqlBaseParser.DropRepositoryContext context) {
+        return new DropRepository(context.ident().getText());
+    }
+
+    @Override
+    public Node visitDropBlobTable(SqlBaseParser.DropBlobTableContext context) {
+        return new DropBlobTable((Table) visit(context.table()), context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitDropAlias(SqlBaseParser.DropAliasContext context) {
+        return new DropAlias(getQualifiedName(context.qname()));
+    }
+
+    @Override
+    public Node visitDropSnapshot(SqlBaseParser.DropSnapshotContext context) {
+        return new DropSnapshot(getQualifiedName(context.qname()));
+    }
+
+    @Override
     public Node visitInsertFromQuery(SqlBaseParser.InsertFromQueryContext context) {
         throw new NotImplementedException();
     }
