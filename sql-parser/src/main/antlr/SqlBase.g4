@@ -666,12 +666,12 @@ columnConstraint
     ;
 
 columnIndexConstraint
-    : INDEX USING indexMethod=ident (WITH '(' genericProperties ')' )?
+    : INDEX USING method=ident (WITH '(' genericProperties ')' )?
     | INDEX OFF
     ;
 
 indexDefinition
-    : INDEX ident USING indexMethod=ident '(' columnList ')' (WITH '(' genericProperties ')' )?
+    : INDEX name=ident USING method=ident '(' columnList ')' (WITH '(' genericProperties ')' )?
     ;
 
 genericProperties
@@ -687,11 +687,11 @@ primaryKeyConstraint
     ;
 
 clusteredInto
-    : CLUSTERED INTO num=parameterOrSimpleLiteral SHARDS
+    : CLUSTERED INTO numShards=parameterOrSimpleLiteral SHARDS
     ;
 
 clusteredBy
-    : CLUSTERED (BY '(' column=numericExpr ')' )? (INTO numberOfShards=parameterOrSimpleLiteral SHARDS)?
+    : CLUSTERED (BY '(' routing=numericExpr ')' )? (INTO numShards=parameterOrSimpleLiteral SHARDS)?
     ;
 
 partitionedBy

@@ -79,10 +79,31 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null),
             false);
     }
+//    tableElement returns [TableElement value]
+//        : columnDefinition { $value = $columnDefinition.value; }
+
 
     @Override
-    public Node visitTableElement(SqlBaseParser.TableElementContext context) {
-        return null;
+    public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context) {
+        return new ColumnDefinition(
+            context.ident().getText(),
+            visitIfPresent(context.generatedColumnDefinition(), Expression.class).orElse(null),
+            visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
+            visit(context.columnConstraint(), ColumnConstraint.class));
+    }
+
+    @Override
+    public Node visitIndexDefinition(SqlBaseParser.IndexDefinitionContext context) {
+        return new IndexDefinition(
+            context.name.getText(),
+            context.method.getText(),
+            visit(context.columnList().numericExpr(), Expression.class),
+            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
+    public Node visitPrimaryKeyConstraint(SqlBaseParser.PrimaryKeyConstraintContext context) {
+        return new PrimaryKeyConstraint(visit(context.columnList().numericExpr(), Expression.class));
     }
 
     @Override
@@ -93,8 +114,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitClusteredBy(SqlBaseParser.ClusteredByContext context) {
         return new ClusteredBy(
-            visitIfPresent(context.column, Expression.class).orElse(null),
-            visitIfPresent(context.numberOfShards, Expression.class).orElse(null)
+            visitIfPresent(context.routing, Expression.class).orElse(null),
+            visitIfPresent(context.numShards, Expression.class).orElse(null)
         );
     }
 
@@ -223,11 +244,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitTableWithPartition(SqlBaseParser.TableWithPartitionContext context) {
         return new Table(getQualifiedName(context.qname()), visit(context.assignment(), Assignment.class));
-    }
-
-    @Override
-    public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext ctx) {
-        return null;
     }
 
     //    @Override
@@ -727,9 +743,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitCast(SqlBaseParser.CastContext context) {
         if (context.TRY_CAST() != null) {
-            return new TryCast((Expression) visit(context.expr()), getType(context.dataType()));
+            return new TryCast((Expression) visit(context.expr()), (ColumnType) visit(context.dataType()));
         } else {
-            return new Cast((Expression) visit(context.expr()), getType(context.dataType()));
+            return new Cast((Expression) visit(context.expr()), (ColumnType) visit(context.dataType()));
         }
     }
 
@@ -1089,8 +1105,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
     }
 
-    private static ColumnType getType(SqlBaseParser.DataTypeContext type) {
-        return new ColumnType(type.getText());
+//    private static ColumnType getType(SqlBaseParser.DataTypeContext type) {
+//        return new ColumnType(type.getText());
 //        if (type.baseType() != null) {
 //            String signature = type.baseType().getText();
 //            if (type.baseType().DOUBLE_PRECISION() != null) {
@@ -1131,7 +1147,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 //        }
 
 //        throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
-    }
+//    }
 
 //    private static String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter) {
 //        if (typeParameter.INTEGER_VALUE() != null) {
