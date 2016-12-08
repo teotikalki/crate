@@ -100,7 +100,7 @@ statement
     | SET (SESSION | LOCAL)? setAssignment                                                  #set
     | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
     | KILL ALL                                                                              #killAll
-    | KILL parameterOrLiteral                                                               #kill
+    | KILL jobId                                                                            #kill
     | INSERT INTO table identList? insertSource onDuplicateKey?                             #insert
     | dropStmt                                                                              #drop
     | RESTORE qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?           #restore
@@ -474,10 +474,6 @@ whenClause
     : WHEN condition=expr THEN result=expr
     ;
 
-elseClause
-    : ELSE expr
-    ;
-
 viewRefresh
     : REFRESH r=integer
     ;
@@ -491,11 +487,11 @@ qname
     ;
 
 ident
-    : IDENT                                                                     #unquotedIdentifier
-    | quotedIdentifier                                                          #quotedIdentifierAlternative
-    | nonReserved                                                               #unquotedIdentifier
-    | BACKQUOTED_IDENT                                                          #backQuotedIdentifier
-    | DIGIT_IDENT                                                               #digitIdentifier
+    : IDENT                                                                          #unquotedIdentifier
+    | quotedIdentifier                                                               #quotedIdentifierAlternative
+    | nonReserved                                                                    #unquotedIdentifier
+    | BACKQUOTED_IDENT                                                               #backQuotedIdentifier
+    | DIGIT_IDENT                                                                    #digitIdentifier
     ;
 
 quotedIdentifier
@@ -503,8 +499,8 @@ quotedIdentifier
     ;
 
 numericLiteral
-    : DECIMAL_VALUE                                                                  #decimalLiteral
-    | INTEGER_VALUE                                                                  #integerLiteral
+    : DECIMAL_VALUE                                                                   #decimalLiteral
+    | INTEGER_VALUE                                                                   #integerLiteral
     ;
 
 booleanLiteral
@@ -593,14 +589,10 @@ crateTableOption
     ;
 
 tableElement
-    :   columnDefinition
-    |   indexDefinition
-    |   primaryKeyConstraint
-    ;
-
-addColumnDefinition
-    : addGeneratedColumnDefinition
-    | subscriptSafe dataType columnConstraint*
+    : columnDefinition                                                               #columndDef
+    | PRIMARY_KEY '(' columnList ')'                                                 #primaryKeyConstraint
+    | INDEX name=ident USING method=ident '(' columnList ')'
+        (WITH '(' genericProperties ')' )?                                           #indexDefinition
     ;
 
 columnDefinition
@@ -611,6 +603,11 @@ columnDefinition
 generatedColumnDefinition
     : ident GENERATED ALWAYS AS expr columnConstraint*
     | ident (dataType GENERATED ALWAYS)? AS expr columnConstraint*
+    ;
+
+addColumnDefinition
+    : addGeneratedColumnDefinition
+    | subscriptSafe dataType columnConstraint*
     ;
 
 addGeneratedColumnDefinition
@@ -660,18 +657,10 @@ objectColumns
     ;
 
 columnConstraint
-    : PRIMARY_KEY
-    | NOT NULL
-    | columnIndexConstraint
-    ;
-
-columnIndexConstraint
-    : INDEX USING method=ident (WITH '(' genericProperties ')' )?
-    | INDEX OFF
-    ;
-
-indexDefinition
-    : INDEX name=ident USING method=ident '(' columnList ')' (WITH '(' genericProperties ')' )?
+    : PRIMARY_KEY                                                                    #columnConstraintPrimaryKey
+    | NOT NULL                                                                       #columnConstraintNotNull
+    | INDEX USING method=ident (WITH '(' genericProperties ')')?                     #columnIndexConstraint
+    | INDEX OFF                                                                      #columnIndexOff
     ;
 
 genericProperties
@@ -680,10 +669,6 @@ genericProperties
 
 genericProperty
     : ident EQ expr
-    ;
-
-primaryKeyConstraint
-    : PRIMARY_KEY '(' columnList ')'
     ;
 
 clusteredInto
