@@ -45,7 +45,7 @@ public class CreateTable extends Statement {
         this.name = name;
         this.tableElements = tableElements;
         this.ifNotExists = ifNotExists;
-        this.crateTableOptions = crateTableOptions != null ? crateTableOptions : ImmutableList.<CrateTableOption>of();
+        this.crateTableOptions = crateTableOptions != null ? crateTableOptions : ImmutableList.of();
         this.properties = Optional.fromNullable(genericProperties);
     }
 

@@ -58,16 +58,14 @@ grammar SqlBase;
 //        }
 //        return super.getErrorMessage(e, tokenNames);
 //    }
-//}
 //
-//@lexer::members {
-//    @Override
-//    public void reportError(RecognitionException e)
-//    {
-//        throw new ParsingException(getErrorMessage(e, getTokenNames()), e);
-//    }
+//        @Override
+//        public void reportError(RecognitionException e)
+//        {
+//            throw new ParsingException(getErrorMessage(e, getTokenNames()), e);
+//        }
 //}
-//
+
 //@rulecatch {
 //    catch (RecognitionException re) {
 //        throw new ParsingException(getErrorMessage(re, getTokenNames()), re);
@@ -105,8 +103,8 @@ statement
     | KILL parameterOrLiteral                                                               #kill
     | INSERT INTO table identList? insertSource onDuplicateKey?                             #insert
     | dropStmt                                                                              #drop
-    | RESTORE restoreStmt                                                                   #restore
-    | CREATE createStatement                                                                #create
+    | RESTORE qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?           #restore
+    | createStmt                                                                            #create
 //    | COPY copyStatement
 //    | SET setStmt
     ;
@@ -118,12 +116,6 @@ dropStmt
 	| DROP REPOSITORY repository                                                            #dropRepository
 	| DROP SNAPSHOT qname                                                                   #dropSnapshot
 	;
-
-restoreStmt
-    : SNAPSHOT qname
-      allOrTableWithPartitionList
-      (WITH '(' genericProperties ')' )?
-    ;
 
 query
     : queryExpr
@@ -490,10 +482,6 @@ viewRefresh
     : REFRESH r=integer
     ;
 
-forRemote
-    : FOR qname
-    ;
-
 tableContentsSource
     : AS query
     ;
@@ -503,15 +491,15 @@ qname
     ;
 
 ident
-    : IDENTIFIER                                                                     #unquotedIdentifier
-    | quotedIdentifier                                                               #quotedIdentifierAlternative
-    | nonReserved                                                                    #unquotedIdentifier
-    | BACKQUOTED_IDENTIFIER                                                          #backQuotedIdentifier
-    | DIGIT_IDENTIFIER                                                               #digitIdentifier
+    : IDENT                                                                     #unquotedIdentifier
+    | quotedIdentifier                                                          #quotedIdentifierAlternative
+    | nonReserved                                                               #unquotedIdentifier
+    | BACKQUOTED_IDENT                                                          #backQuotedIdentifier
+    | DIGIT_IDENT                                                               #digitIdentifier
     ;
 
 quotedIdentifier
-    : QUOTED_IDENTIFIER
+    : QUOTED_IDENT
     ;
 
 numericLiteral
@@ -525,7 +513,8 @@ booleanLiteral
     ;
 
 jobId
-    : parameterOrLiteral
+    : parameterExpr
+    | stringLiteral
     ;
 
 integer
@@ -549,9 +538,13 @@ onDuplicateKey
     ;
 
 insertSource
-   : VALUES values=insertValues
-   | '(' query ')'
+   : VALUES  valuesList ( ',' valuesList )*                                          #insertFromValues
+   | '(' query ')'                                                                   #insertFromQuery
    ;
+
+valuesList
+    : '(' expr (',' expr)* ')'
+    ;
 
 identList
     : '(' ident ( ',' ident )* ')'
@@ -559,14 +552,6 @@ identList
 
 columnList
     : numericExpr ( ',' numericExpr )*
-    ;
-
-insertValues
-    : valuesList ( ',' valuesList )*
-    ;
-
-valuesList
-    : '(' expr (',' expr)* ')'
     ;
 
 assignment
@@ -585,45 +570,16 @@ assignment
 
 // CREATE STATEMENTS
 
-createStatement
-    : TABLE createTableStmt
-    | BLOB TABLE createBlobTableStmt
-    | ALIAS createAliasStmt
-    | ANALYZER createAnalyzerStmt
-//    | REPOSITORY createRepositoryStmt
-    | SNAPSHOT createSnapshotStmt
-    ;
-
-createTableStmt
-    : ( IF NOT EXISTS )? table
-      '(' tableElement (',' tableElement)* ')'
-      crateTableOption*
-      (WITH '(' genericProperties ')' )?
-    ;
-
-createBlobTableStmt
-    : table clusteredInto?
-      (WITH '(' genericProperties ')' )?
-    ;
-
-createAliasStmt
-    : qname forRemote
-    ;
-
-createAnalyzerStmt
-    : ident extendsAnalyzer? analyzerElementList
-    ;
-
-createRepositoryStmt
-    : repository
-      TYPE ident
-      (WITH '(' genericProperties ')' )?
-    ;
-
-createSnapshotStmt
-    : qname
-      allOrTableWithPartitionList
-      (WITH '(' genericProperties ')' )?
+createStmt
+    : CREATE TABLE ( IF NOT EXISTS )? table
+        '(' tableElement (',' tableElement)* ')'
+         crateTableOption*
+         (WITH '(' genericProperties ')' )?                                          #createTable
+//    | CREATE BLOB TABLE table clusteredInto? (WITH '(' genericProperties ')')?              #createBlobTable
+//    | CREATE REPOSITORY repository TYPE ident (WITH '(' genericProperties ')')?             #createRepository
+//    | CREATE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?   #createSnapshot
+//    | CREATE ANALYZER ident extendsAnalyzer? analyzerElementList                            #createAnalyzer
+//    | ALIAS qname FOR qname                                                          #createAlias
     ;
 
 alterTableDefinition
@@ -635,7 +591,6 @@ crateTableOption
     : clusteredBy
     | partitionedBy
     ;
-
 
 tableElement
     :   columnDefinition
@@ -732,11 +687,11 @@ primaryKeyConstraint
     ;
 
 clusteredInto
-    : CLUSTERED INTO parameterOrSimpleLiteral SHARDS
+    : CLUSTERED INTO num=parameterOrSimpleLiteral SHARDS
     ;
 
 clusteredBy
-    : CLUSTERED (BY '(' numericExpr ')' )? (INTO parameterOrSimpleLiteral SHARDS)?
+    : CLUSTERED (BY '(' column=numericExpr ')' )? (INTO numberOfShards=parameterOrSimpleLiteral SHARDS)?
     ;
 
 partitionedBy
@@ -1036,19 +991,19 @@ DECIMAL_VALUE
     | '.' DIGIT+ EXPONENT
     ;
 
-IDENTIFIER
+IDENT
     : (LETTER | '_') (LETTER | DIGIT | '_' | '@' | ':')*
     ;
 
-DIGIT_IDENTIFIER
+DIGIT_IDENT
     : DIGIT (LETTER | DIGIT | '_' | '@' | ':')+
     ;
 
-QUOTED_IDENTIFIER
+QUOTED_IDENT
     : '"' ( ~'"' | '""' )* '"'
     ;
 
-BACKQUOTED_IDENTIFIER
+BACKQUOTED_IDENT
     : '`' ( ~'`' | '``' )* '`'
     ;
 

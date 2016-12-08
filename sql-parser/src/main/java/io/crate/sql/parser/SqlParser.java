@@ -118,24 +118,28 @@ public class SqlParser {
         }
     }
 
-    private class PostProcessor
-        extends SqlBaseBaseListener {
+    private class PostProcessor extends SqlBaseBaseListener {
+        @Override
+        public void enterDropRepository(SqlBaseParser.DropRepositoryContext ctx) {
+            super.enterDropRepository(ctx);
+        }
+
         @Override
         public void exitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context) {
-            String identifier = context.IDENTIFIER().getText();
+            String identifier = context.IDENT().getText();
             for (IdentifierSymbol identifierSymbol : EnumSet.complementOf(allowedIdentifierSymbols)) {
                 char symbol = identifierSymbol.getSymbol();
                 if (identifier.indexOf(symbol) >= 0) {
                     throw new ParsingException("identifiers must not contain '" + identifierSymbol.getSymbol() + "'",
-                        null, context.IDENTIFIER().getSymbol().getLine(),
-                        context.IDENTIFIER().getSymbol().getCharPositionInLine());
+                        null, context.IDENT().getSymbol().getLine(),
+                        context.IDENT().getSymbol().getCharPositionInLine());
                 }
             }
         }
 
         @Override
         public void exitBackQuotedIdentifier(SqlBaseParser.BackQuotedIdentifierContext context) {
-            Token token = context.BACKQUOTED_IDENTIFIER().getSymbol();
+            Token token = context.BACKQUOTED_IDENT().getSymbol();
             throw new ParsingException(
                 "backquoted identifiers are not supported; use double quotes to quote identifiers",
                 null,
@@ -145,7 +149,7 @@ public class SqlParser {
 
         @Override
         public void exitDigitIdentifier(SqlBaseParser.DigitIdentifierContext context) {
-            Token token = context.DIGIT_IDENTIFIER().getSymbol();
+            Token token = context.DIGIT_IDENT().getSymbol();
             throw new ParsingException(
                 "identifiers must not start with a digit; surround the identifier with double quotes",
                 null,
@@ -161,12 +165,11 @@ public class SqlParser {
             Token token = (Token) context.getChild(0).getPayload();
             context.getParent().addChild(new CommonToken(
                 new Pair<>(token.getTokenSource(), token.getInputStream()),
-                SqlBaseLexer.IDENTIFIER,
+                SqlBaseLexer.IDENT,
                 token.getChannel(),
                 token.getStartIndex() + 1,
                 token.getStopIndex() - 1));
         }
-
 
         @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context) {
@@ -176,7 +179,7 @@ public class SqlParser {
             Token token = (Token) context.getChild(0).getPayload();
             context.getParent().addChild(new CommonToken(
                 new Pair<>(token.getTokenSource(), token.getInputStream()),
-                SqlBaseLexer.IDENTIFIER,
+                SqlBaseLexer.IDENT,
                 token.getChannel(),
                 token.getStartIndex(),
                 token.getStopIndex()));

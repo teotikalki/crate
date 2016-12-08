@@ -243,6 +243,65 @@ public class TestStatementBuilder {
     }
 
     @Test
+    public void testCreateTableStmtBuilder() {
+        printStatement("create table if not exists t (id integer primary key, name string)");
+        printStatement("create table t (id integer primary key, name string)");
+        printStatement("create table t (id integer primary key, name string) clustered into 3 shards");
+        printStatement("create table t (id integer primary key, name string) clustered into ? shards");
+        printStatement("create table t (id integer primary key, name string) clustered by (id)");
+        printStatement("create table t (id integer primary key, name string) clustered by (id) into 4 shards");
+        printStatement("create table t (id integer primary key, name string) clustered by (id) into ? shards");
+        printStatement("create table t (id integer primary key, name string) with (number_of_replicas=4)");
+        printStatement("create table t (id integer primary key, name string) with (number_of_replicas=?)");
+        printStatement("create table t (id integer primary key, name string) clustered by (id) with (number_of_replicas=4)");
+        printStatement("create table t (id integer primary key, name string) clustered by (id) into 999 shards with (number_of_replicas=4)");
+        printStatement("create table t (id integer primary key, name string) with (number_of_replicas=-4)");
+        printStatement("create table t (o object(dynamic) as (i integer, d double))");
+        printStatement("create table t (id integer, name string, primary key (id))");
+        printStatement("create table t (" +
+            "  \"_i\" integer, " +
+            "  \"in\" int," +
+            "  \"Name\" string, " +
+            "  bo boolean," +
+            "  \"by\" byte," +
+            "  sh short," +
+            "  lo long," +
+            "  fl float," +
+            "  do double," +
+            "  \"ip_\" ip," +
+            "  ti timestamp," +
+            "  ob object" +
+            ")");
+        printStatement("create table \"TABLE\" (o object(dynamic))");
+        printStatement("create table \"TABLE\" (o object(strict))");
+        printStatement("create table \"TABLE\" (o object(ignored))");
+        printStatement("create table \"TABLE\" (o object(strict) as (inner_col object as (sub_inner_col timestamp, another_inner_col string)))");
+
+        printStatement("create table test (col1 int, col2 timestamp not null)");
+        printStatement("create table test (col1 int primary key not null, col2 timestamp)");
+
+        printStatement("create table t (" +
+            "name string index off, " +
+            "another string index using plain, " +
+            "\"full\" string index using fulltext," +
+            "analyzed string index using fulltext with (analyzer='german', param=?, list=[1,2,3])" +
+            ")");
+        printStatement("create table test (col1 string, col2 string," +
+            "index \"_col1_ft\" using fulltext(col1))");
+        printStatement("create table test (col1 string, col2 string," +
+            "index col1_col2_ft using fulltext(col1, col2) with (analyzer='custom'))");
+
+        printStatement("create table test (prime long, primes array(long), unique_dates set(timestamp))");
+        printStatement("create table test (nested set(set(array(boolean))))");
+        printStatement("create table test (object_array array(object(dynamic) as (i integer, s set(string))))");
+
+        printStatement("create table test (col1 int, col2 timestamp) partitioned by (col1)");
+        printStatement("create table test (col1 int, col2 timestamp) partitioned by (col1, col2)");
+        printStatement("create table test (col1 int, col2 timestamp) partitioned by (col1) clustered by (col2)");
+        printStatement("create table test (col1 int, col2 timestamp) clustered by (col2) partitioned by (col1)");
+        printStatement("create table test (col1 int, col2 object as (col3 timestamp)) partitioned by (col2['col3'])");
+    }
+    @Test
     public void testStatementBuilder() throws Exception {
         printStatement("select * from foo");
 
@@ -301,63 +360,6 @@ public class TestStatementBuilder {
 
         printStatement("select * from foo limit 100 offset 20");
         printStatement("select * from foo offset 20");
-
-        printStatement("create table if not exists t (id integer primary key, name string)");
-        printStatement("create table t (id integer primary key, name string)");
-        printStatement("create table t (id integer primary key, name string) clustered into 3 shards");
-        printStatement("create table t (id integer primary key, name string) clustered into ? shards");
-        printStatement("create table t (id integer primary key, name string) clustered by (id)");
-        printStatement("create table t (id integer primary key, name string) clustered by (id) into 4 shards");
-        printStatement("create table t (id integer primary key, name string) clustered by (id) into ? shards");
-        printStatement("create table t (id integer primary key, name string) with (number_of_replicas=4)");
-        printStatement("create table t (id integer primary key, name string) with (number_of_replicas=?)");
-        printStatement("create table t (id integer primary key, name string) clustered by (id) with (number_of_replicas=4)");
-        printStatement("create table t (id integer primary key, name string) clustered by (id) into 999 shards with (number_of_replicas=4)");
-        printStatement("create table t (id integer primary key, name string) with (number_of_replicas=-4)");
-        printStatement("create table t (o object(dynamic) as (i integer, d double))");
-        printStatement("create table t (id integer, name string, primary key (id))");
-        printStatement("create table t (" +
-                       "  \"_i\" integer, " +
-                       "  \"in\" int," +
-                       "  \"Name\" string, " +
-                       "  bo boolean," +
-                       "  \"by\" byte," +
-                       "  sh short," +
-                       "  lo long," +
-                       "  fl float," +
-                       "  do double," +
-                       "  \"ip_\" ip," +
-                       "  ti timestamp," +
-                       "  ob object" +
-                       ")");
-        printStatement("create table \"TABLE\" (o object(dynamic))");
-        printStatement("create table \"TABLE\" (o object(strict))");
-        printStatement("create table \"TABLE\" (o object(ignored))");
-        printStatement("create table \"TABLE\" (o object(strict) as (inner_col object as (sub_inner_col timestamp, another_inner_col string)))");
-
-        printStatement("create table test (col1 int, col2 timestamp not null)");
-        printStatement("create table test (col1 int primary key not null, col2 timestamp)");
-
-        printStatement("create table t (" +
-                       "name string index off, " +
-                       "another string index using plain, " +
-                       "\"full\" string index using fulltext," +
-                       "analyzed string index using fulltext with (analyzer='german', param=?, list=[1,2,3])" +
-                       ")");
-        printStatement("create table test (col1 string, col2 string," +
-                       "index \"_col1_ft\" using fulltext(col1))");
-        printStatement("create table test (col1 string, col2 string," +
-                       "index col1_col2_ft using fulltext(col1, col2) with (analyzer='custom'))");
-
-        printStatement("create table test (prime long, primes array(long), unique_dates set(timestamp))");
-        printStatement("create table test (nested set(set(array(boolean))))");
-        printStatement("create table test (object_array array(object(dynamic) as (i integer, s set(string))))");
-
-        printStatement("create table test (col1 int, col2 timestamp) partitioned by (col1)");
-        printStatement("create table test (col1 int, col2 timestamp) partitioned by (col1, col2)");
-        printStatement("create table test (col1 int, col2 timestamp) partitioned by (col1) clustered by (col2)");
-        printStatement("create table test (col1 int, col2 timestamp) clustered by (col2) partitioned by (col1)");
-        printStatement("create table test (col1 int, col2 object as (col3 timestamp)) partitioned by (col2['col3'])");
 
         printStatement("create analyzer myAnalyzer ( tokenizer german )");
         printStatement("create analyzer my_analyzer (" +

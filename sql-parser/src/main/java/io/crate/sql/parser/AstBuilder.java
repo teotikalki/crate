@@ -59,22 +59,44 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visitIfPresent(context.genericProperties(), GenericProperties.class));
     }
 
-    //    @Override
-//    public Node visitCreateTableStmt(SqlBaseParser.CreateTableStmtContext context) {
-//        boolean exists = context.EXISTS() != null;
-//        if (exists) {
-//            return new CreateTable((Table) visit(context.table()),
-//                visit(context.crateTableOption()),
-//                visit(context.genericProperties()),
-//                true
-//            );
-//        }
-//        return new CreateTable((Table) visit(context.table()),
-//            visit(context.crateTableOption()),
-//            visit(context.genericProperties()),
-//            true
-//        );
-//    }
+    @Override
+    public Node visitCreateTable(SqlBaseParser.CreateTableContext context) {
+        boolean exists = context.EXISTS() != null;
+        if (exists) {
+            return new CreateTable(
+                (Table) visit(context.table()),
+                visit(context.tableElement(), TableElement.class),
+                visit(context.crateTableOption(), CrateTableOption.class),
+                // change to java optional
+                visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null),
+                true);
+        }
+        return new CreateTable(
+            (Table) visit(context.table()),
+            visit(context.tableElement(), TableElement.class),
+            visit(context.crateTableOption(), CrateTableOption.class),
+            // change to java optional
+            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null),
+            false);
+    }
+
+    @Override
+    public Node visitTableElement(SqlBaseParser.TableElementContext context) {
+        return null;
+    }
+
+    @Override
+    public Node visitPartitionedBy(SqlBaseParser.PartitionedByContext context) {
+        return new PartitionedBy(visit(context.columnList().numericExpr(), Expression.class));
+    }
+
+    @Override
+    public Node visitClusteredBy(SqlBaseParser.ClusteredByContext context) {
+        return new ClusteredBy(
+            visitIfPresent(context.column, Expression.class).orElse(null),
+            visitIfPresent(context.numberOfShards, Expression.class).orElse(null)
+        );
+    }
 
     @Override
     public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context) {
@@ -203,7 +225,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new Table(getQualifiedName(context.qname()), visit(context.assignment(), Assignment.class));
     }
 
-//    @Override
+    @Override
+    public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext ctx) {
+        return null;
+    }
+
+    //    @Override
 //    public Node visitColumnConstraint(SqlBaseParser.ColumnConstraintContext context) {
 //        if (context.PRIMARY_KEY() != null) {
 //            return new PrimaryKeyColumnConstraint();
