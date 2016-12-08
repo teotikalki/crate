@@ -26,9 +26,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static java.util.stream.Collectors.toList;
 
@@ -56,7 +54,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitOptimize(SqlBaseParser.OptimizeContext context) {
         return new OptimizeStatement(
             visit(context.tableWithPartitionList().tableWithPartition(), Table.class),
-            visitIfPresent(context.genericProperties(), GenericProperties.class));
+            visitIfPresent(context.props, GenericProperties.class));
     }
 
     @Override
@@ -68,7 +66,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
                 visit(context.tableElement(), TableElement.class),
                 visit(context.crateTableOption(), CrateTableOption.class),
                 // change to java optional
-                visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null),
+                visitIfPresent(context.props, GenericProperties.class).orElse(null),
                 true);
         }
         return new CreateTable(
@@ -76,7 +74,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visit(context.tableElement(), TableElement.class),
             visit(context.crateTableOption(), CrateTableOption.class),
             // change to java optional
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null),
+            visitIfPresent(context.props, GenericProperties.class).orElse(null),
             false);
     }
 
@@ -85,35 +83,35 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new CreateBlobTable(
             (Table) visit(context.table()),
             visitIfPresent(context.numShards, ClusteredBy.class).orElse(null),
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitCreateRepository(SqlBaseParser.CreateRepositoryContext context) {
         return new CreateRepository(context.name.getText(), context.type.getText(),
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitCreateSnapshot(SqlBaseParser.CreateSnapshotContext context) {
         if (context.allOrTableWithPartitionList().ALL() != null) {
             return new CreateSnapshot(getQualifiedName(context.qname()),
-                visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+                visitIfPresent(context.props, GenericProperties.class).orElse(null));
         }
         return new CreateSnapshot(getQualifiedName(context.qname()),
             visit(context.allOrTableWithPartitionList().tableWithPartitionList().tableWithPartition(), Table.class),
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitRestore(SqlBaseParser.RestoreContext context) {
         if (context.allOrTableWithPartitionList().ALL() != null) {
             return new RestoreSnapshot(getQualifiedName(context.qname()),
-                visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+                visitIfPresent(context.props, GenericProperties.class).orElse(null));
         }
         return new RestoreSnapshot(getQualifiedName(context.qname()),
             visit(context.allOrTableWithPartitionList().tableWithPartitionList().tableWithPartition(), Table.class),
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -287,7 +285,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitColumnIndexConstraint(SqlBaseParser.ColumnIndexConstraintContext context) {
         return new IndexColumnConstraint(
             context.method.getText(),
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -296,7 +294,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             context.name.getText(),
             context.method.getText(),
             visit(context.columnList().numericExpr(), Expression.class),
-            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -318,6 +316,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     // Properties
+
+    @Override
+    public Node visitWithGenericProperties(SqlBaseParser.WithGenericPropertiesContext context) {
+        return visitGenericProperties(context.genericProperties());
+    }
 
     @Override
     public Node visitGenericProperties(SqlBaseParser.GenericPropertiesContext context) {
@@ -864,23 +867,14 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
-    public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context) {
-        return new QualifiedNameReference(QualifiedName.of(Arrays.asList(context.getText().split("\\."))));
-    }
-
-    @Override
-    public Node visitQname(SqlBaseParser.QnameContext context) {
-        return new QualifiedNameReference(QualifiedName.of(Arrays.asList(context.getText().split("\\."))));
-    }
-
-    @Override
     public Node visitQuotedIdentifierAlternative(SqlBaseParser.QuotedIdentifierAlternativeContext context) {
-        return new QualifiedNameReference(QualifiedName.of(Arrays.asList(context.getText().split("\\."))));
+        return new QualifiedNameReference(QualifiedName.of(Collections.singletonList(context.getText())));
     }
 
     @Override
     public Node visitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context) {
-        return new QualifiedNameReference(QualifiedName.of(Arrays.asList(context.getText().split("\\."))));
+        return new QualifiedNameReference(QualifiedName.of(Arrays.asList(
+            context.getText().toLowerCase(Locale.ENGLISH).split("\\."))));
     }
 
     @Override

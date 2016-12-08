@@ -85,7 +85,7 @@ statement
     | BEGIN                                                                                 #begin
     | EXPLAIN statement                                                                     #explain
     | RESET GLOBAL columnList                                                               #resetGlobal
-    | OPTIMIZE TABLE tableWithPartitionList (WITH '(' genericProperties ')' )?              #optimize
+    | OPTIMIZE TABLE tableWithPartitionList props=withGenericProps?                         #optimize
     | REFRESH TABLE tableWithPartitionList                                                  #refreshTable
     | UPDATE aliasedRelation SET assignment ( ',' assignment )* whereClause?                #update
     | DELETE FROM aliasedRelation whereClause?                                              #delete
@@ -102,7 +102,7 @@ statement
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
     | INSERT INTO table identList? insertSource onDuplicateKey?                             #insert
-    | RESTORE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?  #restore
+    | RESTORE SNAPSHOT qname allOrTableWithPartitionList props=withGenericProps?            #restore
 //    | COPY copyStatement
     | dropStmt                                                                              #drop
     | createStmt                                                                            #create
@@ -564,14 +564,11 @@ assignment
 createStmt
     : CREATE TABLE ( IF NOT EXISTS )? table
         '(' tableElement (',' tableElement)* ')'
-         crateTableOption*
-         (WITH '(' genericProperties ')' )?                                          #createTable
-    | CREATE BLOB TABLE table numShards=clusteredInto?
-        (WITH '(' genericProperties ')')?                                            #createBlobTable
-    | CREATE REPOSITORY name=ident TYPE type=ident (WITH '(' genericProperties ')')? #createRepository
-    | CREATE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?   #createSnapshot
+         crateTableOption* props=withGenericProps?                                   #createTable
+    | CREATE BLOB TABLE table numShards=clusteredInto? props=withGenericProps?       #createBlobTable
+    | CREATE REPOSITORY name=ident TYPE type=ident props=withGenericProps?           #createRepository
+    | CREATE SNAPSHOT qname allOrTableWithPartitionList props=withGenericProps?      #createSnapshot
 //    | CREATE ANALYZER ident extendsAnalyzer? analyzerElementList                            #createAnalyzer
-//    | ALIAS qname FOR qname                                                          #createAlias
     ;
 
 alterTableDefinition
@@ -587,8 +584,7 @@ crateTableOption
 tableElement
     : columnDefinition                                                               #columndDef
     | PRIMARY_KEY '(' columnList ')'                                                 #primaryKeyConstraint
-    | INDEX name=ident USING method=ident '(' columnList ')'
-        (WITH '(' genericProperties ')')?                                            #indexDefinition
+    | INDEX name=ident USING method=ident '(' columnList ')' props=withGenericProps? #indexDefinition
     ;
 
 columnDefinition
@@ -655,12 +651,16 @@ objectColumns
 columnConstraint
     : PRIMARY_KEY                                                                    #columnConstraintPrimaryKey
     | NOT NULL                                                                       #columnConstraintNotNull
-    | INDEX USING method=ident (WITH '(' genericProperties ')')?                     #columnIndexConstraint
+    | INDEX USING method=ident props=withGenericProps?                               #columnIndexConstraint
     | INDEX OFF                                                                      #columnIndexOff
     ;
 
+withGenericProps
+    : WITH '(' genericProperties ')'                                                 #withGenericProperties
+    ;
+
 genericProperties
-    :  genericProperty ( ',' genericProperty )*
+    : genericProperty (',' genericProperty)*
     ;
 
 genericProperty
@@ -707,7 +707,7 @@ charFilters
     ;
 
 namedProperties
-    : ident (WITH '(' genericProperties ')' )?
+    : ident props=withGenericProps?
     ;
 
 tableWithPartitionList

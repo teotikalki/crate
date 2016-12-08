@@ -69,6 +69,7 @@ public class TestStatementBuilder {
     public void testDropTableStmtBuilder() {
         printStatement("drop table test");
         printStatement("drop table if exists test");
+        printStatement("drop table bar.foo");
     }
 
     @Test
@@ -76,6 +77,7 @@ public class TestStatementBuilder {
         printStatement("show tables");
         printStatement("show tables like '.*'");
         printStatement("show tables from table_schema");
+        printStatement("show tables from \"tableSchema\"");
         printStatement("show tables in table_schema");
         printStatement("show tables from foo like '.*'");
         printStatement("show tables in foo like '.*'");
@@ -118,7 +120,8 @@ public class TestStatementBuilder {
 
     @Test
     public void testUpdateStmtBuilder() {
-        printStatement("update foo set foo.a=b");
+        printStatement("update foo set \"column['looks_like_nested']\"=1");
+        printStatement("update foo set foo.a='b'");
         printStatement("update bar.foo set bar.foo.t=3");
         printStatement("update foo set col['x'] = 3");
         printStatement("update foo set col['x'] = 3 where foo['x'] = 2");
