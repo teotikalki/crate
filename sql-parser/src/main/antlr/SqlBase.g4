@@ -568,7 +568,7 @@ createStmt
          (WITH '(' genericProperties ')' )?                                          #createTable
     | CREATE BLOB TABLE table numShards=clusteredInto?
         (WITH '(' genericProperties ')')?                                            #createBlobTable
-//    | CREATE REPOSITORY repository TYPE ident (WITH '(' genericProperties ')')?             #createRepository
+    | CREATE REPOSITORY name=ident TYPE type=ident (WITH '(' genericProperties ')')? #createRepository
 //    | CREATE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?   #createSnapshot
 //    | CREATE ANALYZER ident extendsAnalyzer? analyzerElementList                            #createAnalyzer
 //    | ALIAS qname FOR qname                                                          #createAlias

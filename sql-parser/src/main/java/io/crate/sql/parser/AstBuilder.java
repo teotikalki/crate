@@ -89,6 +89,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitCreateRepository(SqlBaseParser.CreateRepositoryContext context) {
+        return new CreateRepository(context.name.getText(), context.type.getText(),
+            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
     public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context) {
         return new ShowCreateTable((Table) visit(context.table()));
     }
