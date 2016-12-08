@@ -54,6 +54,10 @@ To build the HTML and text documentation, run::
 
     $ ./bin/sphinx
 
+If you're editing the docs and want automatic rebuilds, run::
+
+    $ ./bin/sphinx dev
+
 To test that all examples in the documentation execute correctly run::
 
     $ ./bin/test
