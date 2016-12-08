@@ -81,6 +81,14 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitCreateBlobTable(SqlBaseParser.CreateBlobTableContext context) {
+        return new CreateBlobTable(
+            (Table) visit(context.table()),
+            visitIfPresent(context.numShards, ClusteredBy.class).orElse(null),
+            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
     public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context) {
         return new ShowCreateTable((Table) visit(context.table()));
     }
@@ -274,6 +282,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visitIfPresent(context.routing, Expression.class).orElse(null),
             visitIfPresent(context.numShards, Expression.class).orElse(null)
         );
+    }
+
+    @Override
+    public Node visitClusteredInto(SqlBaseParser.ClusteredIntoContext context) {
+        return new ClusteredBy(null, visitIfPresent(context.numShards, Expression.class).orElse(null));
     }
 
     // Properties
