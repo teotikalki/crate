@@ -39,7 +39,6 @@ public class CreateSnapshot extends Statement {
         this.name = name;
         this.properties = Optional.fromNullable(genericProperties);
         this.tableList = Optional.absent();
-
     }
 
     public CreateSnapshot(QualifiedName name,

@@ -102,7 +102,7 @@ statement
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
     | INSERT INTO table identList? insertSource onDuplicateKey?                             #insert
-    | RESTORE qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?           #restore
+    | RESTORE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?  #restore
 //    | COPY copyStatement
     | dropStmt                                                                              #drop
     | createStmt                                                                            #create
@@ -569,7 +569,7 @@ createStmt
     | CREATE BLOB TABLE table numShards=clusteredInto?
         (WITH '(' genericProperties ')')?                                            #createBlobTable
     | CREATE REPOSITORY name=ident TYPE type=ident (WITH '(' genericProperties ')')? #createRepository
-//    | CREATE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?   #createSnapshot
+    | CREATE SNAPSHOT qname allOrTableWithPartitionList (WITH '(' genericProperties ')')?   #createSnapshot
 //    | CREATE ANALYZER ident extendsAnalyzer? analyzerElementList                            #createAnalyzer
 //    | ALIAS qname FOR qname                                                          #createAlias
     ;
@@ -588,7 +588,7 @@ tableElement
     : columnDefinition                                                               #columndDef
     | PRIMARY_KEY '(' columnList ')'                                                 #primaryKeyConstraint
     | INDEX name=ident USING method=ident '(' columnList ')'
-        (WITH '(' genericProperties ')' )?                                           #indexDefinition
+        (WITH '(' genericProperties ')')?                                            #indexDefinition
     ;
 
 columnDefinition

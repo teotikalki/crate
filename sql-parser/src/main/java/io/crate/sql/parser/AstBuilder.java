@@ -95,6 +95,28 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitCreateSnapshot(SqlBaseParser.CreateSnapshotContext context) {
+        if (context.allOrTableWithPartitionList().ALL() != null) {
+            return new CreateSnapshot(getQualifiedName(context.qname()),
+                visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+        }
+        return new CreateSnapshot(getQualifiedName(context.qname()),
+            visit(context.allOrTableWithPartitionList().tableWithPartitionList().tableWithPartition(), Table.class),
+            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
+    public Node visitRestore(SqlBaseParser.RestoreContext context) {
+        if (context.allOrTableWithPartitionList().ALL() != null) {
+            return new RestoreSnapshot(getQualifiedName(context.qname()),
+                visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+        }
+        return new RestoreSnapshot(getQualifiedName(context.qname()),
+            visit(context.allOrTableWithPartitionList().tableWithPartitionList().tableWithPartition(), Table.class),
+            visitIfPresent(context.genericProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
     public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context) {
         return new ShowCreateTable((Table) visit(context.table()));
     }
