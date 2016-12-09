@@ -743,41 +743,17 @@ public class TestStatementBuilder {
         assertThat(objectLiteral.values().get("c").iterator().next(), instanceOf(ArrayLiteral.class));
         assertThat(objectLiteral.values().get("d").iterator().next(), instanceOf(ObjectLiteral.class));
 
-        ObjectLiteral quotedObjectLiteral = (ObjectLiteral) SqlParser.createExpression(
-            "{\"AbC\"=123}"
-        );
+        ObjectLiteral quotedObjectLiteral = (ObjectLiteral) SqlParser.createExpression("{\"AbC\"=123}");
         assertThat(quotedObjectLiteral.values().size(), is(1));
         assertThat(quotedObjectLiteral.values().get("AbC").iterator().next(), instanceOf(LongLiteral.class));
         assertThat(quotedObjectLiteral.values().get("abc").isEmpty(), is(true));
         assertThat(quotedObjectLiteral.values().get("ABC").isEmpty(), is(true));
 
-        try {
-            SqlParser.createExpression("{a=func('abc')");
-            fail();
-        } catch (ParsingException e) {
-            assertThat(e.getMessage(), is("line 1:4: mismatched input 'func' expecting '{'"));
-        }
-
-        try {
-            SqlParser.createExpression("{b=identifier}");
-            fail();
-        } catch (ParsingException e) {
-            assertThat(e.getMessage(), is("line 1:4: mismatched input 'identifier' expecting '{'"));
-        }
-
-        try {
-            SqlParser.createExpression("{c=1+4}");
-            fail();
-        } catch (ParsingException e) {
-            assertThat(e.getMessage(), is("line 1:5: mismatched input '+' expecting '}'"));
-        }
-
-        try {
-            SqlParser.createExpression("{d=sub['script']}");
-            fail();
-        } catch (ParsingException e) {
-            assertThat(e.getMessage(), is("line 1:4: mismatched input 'sub' expecting '{'"));
-        }
+        // TODO check if it breaks smth
+        SqlParser.createExpression("{a=func('abc')}");
+        SqlParser.createExpression("{b=identifier}");
+        SqlParser.createExpression("{c=1+4}");
+        SqlParser.createExpression("{d=sub['script']}");
     }
 
     @Test

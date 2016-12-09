@@ -15,6 +15,8 @@
 package io.crate.sql.parser;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
 import io.crate.sql.parser.antlr.v4.SqlBaseBaseVisitor;
 import io.crate.sql.parser.antlr.v4.SqlBaseLexer;
 import io.crate.sql.parser.antlr.v4.SqlBaseParser;
@@ -151,7 +153,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.identList() != null) {
             columns = visit(context.identList().ident(), Expression.class)
                 .stream()
-                .map(v -> v.toString())
+                .map(Expression::toString)
                 .collect(toList());
         }
 
@@ -897,6 +899,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitQuotedIdentifier(SqlBaseParser.QuotedIdentifierContext ctx) {
+        return super.visitQuotedIdentifier(ctx);
+    }
+
+    @Override
     public Node visitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context) {
         return new QualifiedNameReference(QualifiedName.of(Arrays.asList(
             context.getText().toLowerCase(Locale.ENGLISH).split("\\."))));
@@ -982,6 +989,20 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitBooleanLiteral(SqlBaseParser.BooleanLiteralContext context) {
         return Literal.fromObject(Boolean.valueOf(context.getText()));
+    }
+
+    @Override
+    public Node visitArrayLiteral(SqlBaseParser.ArrayLiteralContext context) {
+        return new ArrayLiteral(visit(context.expr(), Expression.class));
+    }
+
+    @Override
+    public Node visitObjectLiteral(SqlBaseParser.ObjectLiteralContext context) {
+        Multimap<String, Expression> objAttributes = LinkedListMultimap.create();
+        context.objectKeyValue().forEach(attr ->
+            objAttributes.put(attr.key.getText(), (Expression) visit(attr.value))
+        );
+        return new ObjectLiteral(objAttributes);
     }
 
     @Override

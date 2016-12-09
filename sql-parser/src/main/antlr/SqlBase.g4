@@ -47,12 +47,6 @@ grammar SqlBase;
 //    @Override
 //    public String getErrorMessage(RecognitionException e, String[] tokenNames)
 //    {
-//        if (e.token.getType() == BACKQUOTED_IDENT) {
-//            return "backquoted identifiers are not supported; use double quotes to quote identifiers";
-//        }
-//        if (e.token.getType() == DIGIT_IDENT) {
-//            return "identifiers must not start with a digit; surround the identifier with double quotes";
-//        }
 //        if (e.token.getType() == COLON_IDENT) {
 //            return "identifiers must not contain a colon; use '@' instead of ':' for table links";
 //        }
@@ -514,7 +508,7 @@ integer
     ;
 
 arrayLiteral
-    : ARRAY? '[' ( expr (',' expr)* )? ']'
+    : ARRAY? '[' (expr (',' expr)*)? ']'
     ;
 
 objectLiteral
@@ -522,7 +516,7 @@ objectLiteral
     ;
 
 objectKeyValue
-    : ident EQ parameterOrLiteral
+    : key=ident EQ value=expr
     ;
 
 insertSource
