@@ -526,25 +526,28 @@ public class TestStatementBuilder {
 
     @Test
     public void testInsertStmtBuilder() throws Exception {
+        // insert from values
         printStatement("insert into foo (id, name) values ('string', 1.2)");
         printStatement("insert into foo values ('string', NULL)");
         printStatement("insert into foo (id, name) values ('string', 1.2), (abs(-4), 4+?)");
         printStatement("insert into schemah.foo (id, name) values ('string', 1.2)");
 
-        printStatement("insert into foo (id, name) (select id, name from bar order by id)");
-        printStatement("insert into foo (id, name) (select * from bar limit 3 offset 10)");
-        printStatement("insert into foo (wealth, name) (select sum(money), name from bar group by name)");
-        printStatement("insert into foo (select sum(money), name from bar group by name)");
-
-        printStatement("insert into foo (id, name) select id, name from bar order by id");
-        printStatement("insert into foo (id, name) select * from bar limit 3 offset 10");
-        printStatement("insert into foo (wealth, name) select sum(money), name from bar group by name");
-        printStatement("insert into foo select sum(money), name from bar group by name");
-        
         printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1");
         printStatement("insert into t (a, b) values (1, 2) on duplicate key update a = a + 1, b = 3");
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = 4");
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = values(b) - 2");
+
+        // insert from query
+        // TODO: enable if "FromClause" is implemented in the parser
+//        printStatement("insert into foo (id, name) select id, name from bar order by id");
+//        printStatement("insert into foo (id, name) select * from bar limit 3 offset 10");
+//        printStatement("insert into foo (wealth, name) select sum(money), name from bar group by name");
+//        printStatement("insert into foo select sum(money), name from bar group by name");
+//
+//        printStatement("insert into foo (id, name) (select id, name from bar order by id)");
+//        printStatement("insert into foo (id, name) (select * from bar limit 3 offset 10)");
+//        printStatement("insert into foo (wealth, name) (select sum(money), name from bar group by name)");
+//        printStatement("insert into foo (select sum(money), name from bar group by name)");
     }
 
     @Test

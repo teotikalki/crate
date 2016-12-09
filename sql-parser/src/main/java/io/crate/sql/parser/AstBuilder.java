@@ -145,13 +145,38 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
-    public Node visitInsertFromQuery(SqlBaseParser.InsertFromQueryContext context) {
-        throw new NotImplementedException();
+    public Node visitInsert(SqlBaseParser.InsertContext context) {
+
+        List<String> columns = null;
+        if (context.identList() != null) {
+            columns = visit(context.identList().ident(), Expression.class)
+                .stream()
+                .map(v -> v.toString())
+                .collect(toList());
+        }
+
+        List<Assignment> onDuplicateKeyAssignments = Optional.ofNullable(
+            visit(context.assignment(), Assignment.class))
+            .orElse(null);
+
+        if (context.insertSource().query() != null) {
+            return new InsertFromSubquery(
+                (Table) visit(context.table()),
+                (Query) visit(context.insertSource().query()),
+                columns,
+                onDuplicateKeyAssignments);
+        }
+
+        return new InsertFromValues(
+            (Table) visit(context.table()),
+            visit(context.insertSource().valuesList(), ValuesList.class),
+            columns,
+            onDuplicateKeyAssignments);
     }
 
     @Override
-    public Node visitInsertFromValues(SqlBaseParser.InsertFromValuesContext context) {
-        throw new NotImplementedException();
+    public Node visitValuesList(SqlBaseParser.ValuesListContext context) {
+        return new ValuesList(visit(context.expr(), Expression.class));
     }
 
     @Override

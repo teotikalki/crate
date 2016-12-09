@@ -101,7 +101,8 @@ statement
     | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
-    | INSERT INTO table identList? insertSource onDuplicateKey?                             #insert
+    | INSERT INTO table identList? insertSource
+        ( ON DUPLICATE KEY UPDATE assignment ( ',' assignment )* )?                         #insert
     | RESTORE SNAPSHOT qname allOrTableWithPartitionList props=withGenericProps?            #restore
 //    | COPY copyStatement
     | dropStmt                                                                              #drop
@@ -524,13 +525,10 @@ objectKeyValue
     : ident EQ parameterOrLiteral
     ;
 
-onDuplicateKey
-    : ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*
-    ;
-
 insertSource
-   : VALUES  valuesList ( ',' valuesList )*                                          #insertFromValues
-   | '(' query ')'                                                                   #insertFromQuery
+   : VALUES  valuesList ( ',' valuesList )*
+   | query
+   | '(' query ')'
    ;
 
 valuesList
