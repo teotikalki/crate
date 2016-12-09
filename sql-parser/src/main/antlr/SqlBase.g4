@@ -81,22 +81,24 @@ statement
     | RESET GLOBAL columnList                                                               #resetGlobal
     | OPTIMIZE TABLE tableWithPartitionList props=withGenericProps?                         #optimize
     | REFRESH TABLE tableWithPartitionList                                                  #refreshTable
-    | UPDATE aliasedRelation SET assignment ( ',' assignment )* whereClause?                #update
-    | DELETE FROM aliasedRelation whereClause?                                              #delete
+    | UPDATE aliasedRelation SET assignment ( ',' assignment )* where?                      #update
+    | DELETE FROM aliasedRelation where?                                                    #delete
     | SHOW CREATE TABLE table                                                               #showCreateTable
-    | SHOW TABLES ((FROM | IN) qname)? (LIKE pattern=stringLiteral | where=whereClause)?    #showTables
-    | SHOW SCHEMAS (LIKE pattern=stringLiteral | where=whereClause)?                        #showSchemas
-    | SHOW COLUMNS (FROM | IN) qname ((FROM | IN) qname)?
-        (LIKE pattern=stringLiteral | where=whereClause)?                                   #showColumns
+    | SHOW TABLES ((FROM | IN) qname)? (LIKE pattern=stringLiteral | where)?                #showTables
+    | SHOW SCHEMAS (LIKE pattern=stringLiteral | where)?                                    #showSchemas
+    | SHOW COLUMNS (FROM | IN) tableName=qname ((FROM | IN) schema=qname)?
+        (LIKE pattern=stringLiteral | where)?                                               #showColumns
     | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDefinition                      #addColumn
-    | ALTER TABLE alterTableDefinition (SET '(' genericProperties ')' | RESET identList)    #alterTableProperties
-    | ALTER TABLE alterTableDefinition (SET '(' genericProperties ')' | RESET identList)    #alterBlobTableProperties
+    | ALTER TABLE alterTableDefinition
+        (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterTableProperties
+    | ALTER BLOB TABLE alterTableDefinition
+        (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterBlobTableProperties
     | SET (SESSION | LOCAL)? setAssignment                                                  #set
     | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
-    | INSERT INTO table identList? insertSource
-        ( ON DUPLICATE KEY UPDATE assignment ( ',' assignment )* )?                         #insert
+    | INSERT INTO table ('(' ident (',' ident)* ')')? insertSource
+        (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                           #insert
     | RESTORE SNAPSHOT qname allOrTableWithPartitionList props=withGenericProps?            #restore
 //    | COPY copyStatement
     | dropStmt                                                                              #drop
@@ -112,99 +114,29 @@ dropStmt
 	;
 
 query
-    : queryExpr
+    :  with? queryNoWith
     ;
 
-queryExpr
-    : withClause?
-        (orderOrLimitOrOffsetQuerySpec | queryExprBody orderClause? limitClause? offsetClause?)
+with
+    : WITH RECURSIVE? namedQuery (',' namedQuery)*
     ;
 
-orderOrLimitOrOffsetQuerySpec
-    : simpleQuery (orderClause limitClause? offsetClause? | limitClause offsetClause? | offsetClause)
+queryNoWith:
+      queryTerm
+      (ORDER BY sortItem (',' sortItem)*)?
+      (LIMIT limit=paramOrInteger)?
+      (OFFSET offset=paramOrInteger)?
     ;
 
-queryExprBody
-    : queryTerm
-      ( UNION setQuant? queryTerm | EXCEPT setQuant? queryTerm)*
+paramOrInteger
+    : parameterExpr
+    | integerLiteral
     ;
 
 queryTerm
-    : ( queryPrimary )
-      ( INTERSECT setQuant? queryPrimary )*
-    ;
-
-queryPrimary
-    : simpleQuery
-    | tableSubquery
-    | explicitTable
-    ;
-
-explicitTable
-    : TABLE table
-    ;
-
-simpleQuery
-    : selectClause
-//      fromClause?
-      whereClause?
-      groupClause?
-      havingClause?
-    ;
-
-restrictedSelectStmt
-    : selectClause
-//      fromClause
-    ;
-
-withClause
-    : WITH r=RECURSIVE? withList
-    ;
-
-selectClause
-    : SELECT selectExpr
-    ;
-
-//fromClause
-//    : FROM tableRef (',' tableRef)*
-//    ;
-
-whereClause
-    : WHERE expr
-    ;
-
-groupClause
-    : GROUP BY expr (',' expr)*
-    ;
-
-havingClause
-    : HAVING expr
-    ;
-
-orderClause
-    : ORDER BY sortItem (',' sortItem)*
-    ;
-
-limitClause
-    : LIMIT integer
-    | LIMIT parameterExpr
-    ;
-
-offsetClause
-    : OFFSET integer
-    | OFFSET parameterExpr
-    ;
-
-withList
-    : withQuery (',' withQuery)*
-    ;
-
-withQuery
-    : ident aliasedColumns? AS? subquery
-    ;
-
-selectExpr
-    : setQuant? selectList
+    : queryPrimary                                                                   #queryTermDefault
+    | left=queryTerm operator=INTERSECT setQuant? right=queryTerm                    #setOperation
+    | left=queryTerm operator=(UNION | EXCEPT) setQuant? right=queryTerm             #setOperation
     ;
 
 setQuant
@@ -212,37 +144,81 @@ setQuant
     | ALL
     ;
 
-selectList
-    : selectSublist (',' selectSublist)*
+queryPrimary
+    : querySpecification                                                             #queryPrimaryDefault
+    | TABLE qname                                                                    #explicitTable
+    | VALUES expr (',' expr)*                                                        #inlineTable
+    | '(' queryNoWith  ')'                                                           #subquery
     ;
 
-selectSublist
-    : expr (AS? ident)?
-    | qname '.' '*'
-    | '*'
+sortItem
+    : expr ordering=(ASC | DESC)? (NULLS nullOrdering=(FIRST | LAST))?
     ;
 
-//tableRef
-//    : ( tableFactor )
-//      ( CROSS JOIN tableFactor
-//      | joinType JOIN tableFactor joinCriteria
-//      | NATURAL joinType JOIN tableFactor
-//      )*
-//    ;
+querySpecification
+    : SELECT setQuant? selectItem (',' selectItem)*
+      (FROM relation (',' relation)*)?
+      (where)?
+      (GROUP BY expr (',' expr)*)?
+      (HAVING having=booleanExpression)?
+    ;
 
-//tableFactor
-//    : ( tablePrimary )
-//      ( TABLESAMPLE sampleType '(' expression ')' stratifyOn?)?
-//    ;
+namedQuery
+    : name=ident (aliasedColumns)? AS '(' query ')'
+    ;
 
-aliasedRelation
-    : relation (AS? ident aliasedColumns?)?
+selectItem
+    : expr (AS? ident)?                                                              #selectSingle
+    | qname '.' ASTERISK                                                             #selectAll
+    | ASTERISK                                                                       #selectAll
+    ;
+
+where
+    : WHERE condition=booleanExpression
     ;
 
 relation
-    : table
-//    | ('(' tableRef ')')
-    | tableSubquery
+    : left=relation
+      ( CROSS JOIN right=sampledRelation
+      | joinType JOIN rightRelation=relation joinCriteria
+      | NATURAL joinType JOIN right=sampledRelation
+      )                                                                              #joinRelation
+    | sampledRelation                                                                #relationDefault
+    ;
+
+joinType
+    : INNER?
+    | LEFT OUTER?
+    | RIGHT OUTER?
+    | FULL OUTER?
+    ;
+
+joinCriteria
+    : ON booleanExpression
+    | USING '(' ident (',' ident)* ')'
+    ;
+
+sampledRelation
+    : aliasedRelation (TABLESAMPLE sampleType '(' percentage=expr ')' stratifyOn?)?
+    ;
+
+stratifyOn
+    : STRATIFY ON '(' expr (',' expr)* ')'
+    ;
+
+sampleType
+    : BERNOULLI
+    | SYSTEM
+    ;
+
+aliasedRelation
+    : relationPrimary (AS? ident aliasedColumns?)?
+    ;
+
+relationPrimary
+    : table                                                                          #tableName
+    | '(' query ')'                                                                  #subqueryRelation
+    | '(' relation ')'                                                               #parenthesizedRelation
     ;
 
 tableWithPartition
@@ -258,26 +234,6 @@ tableOnly
     : ONLY qname
     ;
 
-tableSubquery
-    : '(' query ')'
-    ;
-//
-//joinedTable
-//    : '(' tableRef ')'
-//    ;
-
-joinType
-    : INNER?
-    | LEFT OUTER?
-    | RIGHT OUTER?
-    | FULL OUTER?
-    ;
-
-joinCriteria
-    : ON expr
-    | USING '(' ident (',' ident)* ')'
-    ;
-
 aliasedColumns
     : '(' ident (',' ident)* ')'
     ;
@@ -287,10 +243,10 @@ expr
     ;
 
 booleanExpression
-    : predicated                                                   #booleanDefault
-    | NOT booleanExpression                                        #logicalNot
-    | left=booleanExpression operator=AND right=booleanExpression  #logicalBinary
-    | left=booleanExpression operator=OR right=booleanExpression   #logicalBinary
+    : predicated                                                                     #booleanDefault
+    | NOT booleanExpression                                                          #logicalNot
+    | left=booleanExpression operator=AND right=booleanExpression                    #logicalBinary
+    | left=booleanExpression operator=OR right=booleanExpression                     #logicalBinary
     ;
 
 predicated
@@ -298,14 +254,14 @@ predicated
     ;
 
 predicate[ParserRuleContext value]
-    : cmpOp right=valueExpression                                         #comparison
-    | cmpOp setCmpQuantifier '(' query ')'                                #quantifiedComparison
-    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
-    | NOT? IN '(' expr (',' expr)* ')'                                    #inList
-    | NOT? IN '(' query ')'                                               #inSubquery
-    | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
-    | IS NOT? NULL                                                        #nullPredicate
-    | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    : cmpOp right=valueExpression                                                    #comparison
+    | cmpOp setCmpQuantifier '(' query ')'                                           #quantifiedComparison
+    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression                   #between
+    | NOT? IN '(' expr (',' expr)* ')'                                               #inList
+    | NOT? IN '(' query ')'                                                          #inSubquery
+    | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?             #like
+    | IS NOT? NULL                                                                   #nullPredicate
+    | IS NOT? DISTINCT FROM right=valueExpression                                    #distinctFrom
     ;
 
 valueExpression
@@ -327,11 +283,11 @@ numericExpr
     | value=numericExpr '[' index=valueExpression ']'                                #subscript
     | ident ('.' ident)*                                                             #dereference
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
-    | name=CURRENT_TIME ('(' precision=integer')')?                                  #specialDateTimeFunction
-    | name=CURRENT_TIMESTAMP ('(' precision=integer')')?                             #specialDateTimeFunction
+    | name=CURRENT_TIME ('(' precision=integerLiteral')')?                           #specialDateTimeFunction
+    | name=CURRENT_TIMESTAMP ('(' precision=integerLiteral')')?                      #specialDateTimeFunction
     | CURRENT_SCHEMA ('(' ')')?                                                      #currentSchema
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')'                                   #substring
-    | EXTRACT '(' identExpr FROM field=expr ')'                                      #extract
+    | EXTRACT '(' identExpr FROM expr ')'                                            #extract
     | CAST '(' expr AS dataType ')'                                                  #cast
     | TRY_CAST '(' expr AS dataType ')'                                              #cast
     | CASE valueExpression whenClause+ (ELSE elseExpression=expr)? END               #simpleCase
@@ -360,7 +316,7 @@ parameterOrSimpleLiteral
     ;
 
 parameterExpr
-    : '$' integer                                                                    #positionalParameter
+    : '$' integerLiteral                                                             #positionalParameter
     | '?'                                                                            #parameterPlaceholder
     ;
 
@@ -395,47 +351,27 @@ subscriptSafe
     : qname ('[' numericExpr ']')*
     ;
 
+// not used in crate
 over
-    : OVER '(' window ')'
-    ;
-
-window
-    : p=windowPartition? o=orderClause? f=windowFrame?
-    ;
-
-windowPartition
-    : PARTITION BY expr (',' expr)*
+    : OVER '('
+        (PARTITION BY partition+=expr (',' partition+=expr)*)?
+        (ORDER BY sortItem (',' sortItem)*)?
+        windowFrame?
+      ')'
     ;
 
 windowFrame
-    : RANGE frameBound
-    | ROWS frameBound
-    | RANGE BETWEEN frameBound AND frameBound
-    | ROWS BETWEEN frameBound AND frameBound
+    : frameType=RANGE start=frameBound
+    | frameType=ROWS start=frameBound
+    | frameType=RANGE BETWEEN start=frameBound AND end=frameBound
+    | frameType=ROWS BETWEEN start=frameBound AND end=frameBound
     ;
 
 frameBound
-    : UNBOUNDED PRECEDING
-    | UNBOUNDED FOLLOWING
-    | CURRENT ROW
-    | expr
-      ( PRECEDING
-      | FOLLOWING
-      )
-    ;
-
-sortItem
-    : expr ordering nullOrdering?
-    ;
-
-ordering
-    : ASC
-    | DESC
-    ;
-
-nullOrdering
-    : NULLS FIRST
-    | NULLS LAST
+    : UNBOUNDED boundType=PRECEDING                                                  #unboundedFrame
+    | UNBOUNDED boundType=FOLLOWING                                                  #unboundedFrame
+    | CURRENT ROW                                                                    #currentRowBound
+    | expr boundType=(PRECEDING | FOLLOWING)                                         #boundedFrame
     ;
 
 cmpOp
@@ -446,18 +382,10 @@ setCmpQuantifier
     : ANY | SOME | ALL
     ;
 
-subquery
-    : '(' query ')'
-    ;
-
 dateLiteral
     : DATE STRING
     | TIME STRING
     | TIMESTAMP STRING
-    ;
-
-nonSecond
-    : YEAR | MONTH | DAY | HOUR | MINUTE
     ;
 
 whenClause
@@ -465,7 +393,7 @@ whenClause
     ;
 
 viewRefresh
-    : REFRESH r=integer
+    : REFRESH r=integerLiteral
     ;
 
 tableContentsSource
@@ -477,20 +405,20 @@ qname
     ;
 
 ident
-    : IDENT                                                                          #unquotedIdentifier
+    : IDENTIFIER                                                                     #unquotedIdentifier
     | quotedIdentifier                                                               #quotedIdentifierAlternative
     | nonReserved                                                                    #unquotedIdentifier
-    | BACKQUOTED_IDENT                                                               #backQuotedIdentifier
-    | DIGIT_IDENT                                                                    #digitIdentifier
+    | BACKQUOTED_IDENTIFIER                                                          #backQuotedIdentifier
+    | DIGIT_IDENTIFIER                                                               #digitIdentifier
     ;
 
 quotedIdentifier
-    : QUOTED_IDENT
+    : QUOTED_IDENTIFIER
     ;
 
 numericLiteral
-    : DECIMAL_VALUE                                                                  #decimalLiteral
-    | INTEGER_VALUE                                                                  #integerLiteral
+    : decimalLiteral
+    | integerLiteral
     ;
 
 booleanLiteral
@@ -503,7 +431,11 @@ jobId
     | stringLiteral
     ;
 
-integer
+decimalLiteral
+    : DECIMAL_VALUE
+    ;
+
+integerLiteral
     : INTEGER_VALUE
     ;
 
@@ -527,10 +459,6 @@ insertSource
 
 valuesList
     : '(' expr (',' expr)* ')'
-    ;
-
-identList
-    : '(' ident (',' ident)* ')'
     ;
 
 columnList
@@ -664,7 +592,7 @@ clusteredInto
     ;
 
 clusteredBy
-    : CLUSTERED (BY '(' routing=numericExpr ')' )? (INTO numShards=parameterOrSimpleLiteral SHARDS)?
+    : CLUSTERED (BY '(' routing=numericExpr ')')? (INTO numShards=parameterOrSimpleLiteral SHARDS)?
     ;
 
 partitionedBy
@@ -703,7 +631,7 @@ namedProperties
     ;
 
 tableWithPartitionList
-    : tableWithPartition ( ',' tableWithPartition )*
+    : tableWithPartition (',' tableWithPartition)*
     ;
 
 allOrTableWithPartitionList
@@ -721,7 +649,7 @@ setAssignment
 
 setExprList
     : DEFAULT
-    | setExpr ( ',' setExpr )*
+    | setExpr (',' setExpr)*
     ;
 
 setExpr
@@ -931,6 +859,8 @@ MATCH: 'MATCH';
 GENERATED: 'GENERATED';
 ALWAYS: 'ALWAYS';
 
+READ: 'READ';
+
 EQ  : '=';
 NEQ : '<>' | '!=';
 LT  : '<';
@@ -964,19 +894,19 @@ DECIMAL_VALUE
     | '.' DIGIT+ EXPONENT
     ;
 
-IDENT
+IDENTIFIER
     : (LETTER | '_') (LETTER | DIGIT | '_' | '@' | ':')*
     ;
 
-DIGIT_IDENT
+DIGIT_IDENTIFIER
     : DIGIT (LETTER | DIGIT | '_' | '@' | ':')+
     ;
 
-QUOTED_IDENT
+QUOTED_IDENTIFIER
     : '"' ( ~'"' | '""' )* '"'
     ;
 
-BACKQUOTED_IDENT
+BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
     ;
 
@@ -989,7 +919,7 @@ fragment EXPONENT
     ;
 
 fragment DIGIT
-    : '0'..'9'
+    : [0-9]
     ;
 
 fragment LETTER

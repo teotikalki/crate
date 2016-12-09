@@ -362,43 +362,42 @@ public class TestStatementBuilder {
 
     @Test
     public void testStatementBuilder() throws Exception {
-        printStatement("select * from foo");
-
+        printStatement("select extract(day from x) from y");
+        printStatement("select * from foo order by 1, 2 limit 1 offset ?");
         printStatement("select * from foo a (x, y, z)");
-
         printStatement("select *, 123, * from foo");
-
         printStatement("select show from foo");
         printStatement("select extract(day from x), extract(dow from x) from y");
         printStatement("select extract('day' from x), extract(? from x) from y");
 
-        printStatement("select 1 + 13 || '15' from foo");
-        printStatement("select col['x'] + col['y'] from foo");
-        printStatement("select col['x'] - col['y'] from foo");
-        printStatement("select col['y'] / col[2 / 1] from foo");
+//        printStatement("select 1 + 13 || '15' from foo");
+        printStatement("select \"test\" from foo");
+//        printStatement("select col['x'] + col['y'] from foo");
+//        printStatement("select col['x'] - col['y'] from foo");
+//        printStatement("select col['y'] / col[2 / 1] from foo");
         printStatement("select col[1] from foo");
 
         printStatement("select - + 10");
-        printStatement("select - ( - - 10)");
-        printStatement("select - ( + - 10) * - ( - 10 - + 10)");
+//        printStatement("select - ( - - 10)");
+//        printStatement("select - ( + - 10) * - ( - 10 - + 10)");
         printStatement("select - - col['x']");
+//
+//         expressions as subscript index are only supported by the parser
+//        printStatement("select col[1 + 2] - col['y'] from foo");
 
-        // expressions as subscript index are only supported by the parser
-        printStatement("select col[1 + 2] - col['y'] from foo");
+//        printStatement("select x is distinct from y from foo where a is not distinct from b");
 
-        printStatement("select x is distinct from y from foo where a is not distinct from b");
-
-        printStatement("" +
-                       "select depname, empno, salary\n" +
-                       ", count(*) over ()\n" +
-                       ", avg(salary) over (partition by depname)\n" +
-                       ", rank() over (partition by depname order by salary desc)\n" +
-                       ", sum(salary) over (order by salary rows unbounded preceding)\n" +
-                       ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
-                       ", sum(salary) over (partition by depname range unbounded preceding)\n" +
-                       ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
-                       "from emp");
-
+//        printStatement("" +
+//                       "select depname, empno, salary\n" +
+//                       ", count(*) over ()\n" +
+//                       ", avg(salary) over (partition by depname)\n" +
+//                       ", rank() over (partition by depname order by salary desc)\n" +
+//                       ", sum(salary) over (order by salary rows unbounded preceding)\n" +
+//                       ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
+//                       ", sum(salary) over (partition by depname range unbounded preceding)\n" +
+//                       ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
+//                       "from emp");
+//
         printStatement("" +
                        "with a (id) as (with x as (select 123 from z) select * from x) " +
                        "   , b (id) as (select 999 from z) " +
@@ -412,20 +411,23 @@ public class TestStatementBuilder {
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"orders\"");
 
+        printStatement("select * from foo limit 100 offset 20");
+        printStatement("select * from foo offset 20");
+
+//        printStatement("select * from t where 'value' LIKE ANY (col)");
+//        printStatement("select * from t where 'value' NOT LIKE ANY (col)");
+//        printStatement("select * from t where 'source' ~ 'pattern'");
+//        printStatement("select * from t where 'source' !~ 'pattern'");
+//        printStatement("select * from t where source_column ~ pattern_column");
+//        printStatement("select * from t where ? !~ ?");
+    }
+
+    @Test
+    public void testSelectAndSampleRelationStmtBuilder() {
         printStatement("select * from foo tablesample system (10+1)");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample bernoulli (10) stratify on (id)");
         printStatement("select * from foo tablesample system (50) stratify on (id, name)");
-
-        printStatement("select * from foo limit 100 offset 20");
-        printStatement("select * from foo offset 20");
-
-        printStatement("select * from t where 'value' LIKE ANY (col)");
-        printStatement("select * from t where 'value' NOT LIKE ANY (col)");
-        printStatement("select * from t where 'source' ~ 'pattern'");
-        printStatement("select * from t where 'source' !~ 'pattern'");
-        printStatement("select * from t where source_column ~ pattern_column");
-        printStatement("select * from t where ? !~ ?");
     }
 
     @Test
@@ -538,16 +540,15 @@ public class TestStatementBuilder {
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = values(b) - 2");
 
         // insert from query
-        // TODO: enable if "FromClause" is implemented in the parser
-//        printStatement("insert into foo (id, name) select id, name from bar order by id");
-//        printStatement("insert into foo (id, name) select * from bar limit 3 offset 10");
-//        printStatement("insert into foo (wealth, name) select sum(money), name from bar group by name");
-//        printStatement("insert into foo select sum(money), name from bar group by name");
-//
-//        printStatement("insert into foo (id, name) (select id, name from bar order by id)");
-//        printStatement("insert into foo (id, name) (select * from bar limit 3 offset 10)");
-//        printStatement("insert into foo (wealth, name) (select sum(money), name from bar group by name)");
-//        printStatement("insert into foo (select sum(money), name from bar group by name)");
+        printStatement("insert into foo (id, name) select id, name from bar order by id");
+        printStatement("insert into foo (id, name) select * from bar limit 3 offset 10");
+        printStatement("insert into foo (wealth, name) select sum(money), name from bar group by name");
+        printStatement("insert into foo select sum(money), name from bar group by name");
+
+        printStatement("insert into foo (id, name) (select id, name from bar order by id)");
+        printStatement("insert into foo (id, name) (select * from bar limit 3 offset 10)");
+        printStatement("insert into foo (wealth, name) (select sum(money), name from bar group by name)");
+        printStatement("insert into foo (select sum(money), name from bar group by name)");
     }
 
     @Test
@@ -893,6 +894,7 @@ public class TestStatementBuilder {
     private static void printStatement(String sql) {
         println(sql.trim());
         println("");
+
         Statement statement = SqlParser.createStatement(sql);
         println(statement.toString());
         println("");
