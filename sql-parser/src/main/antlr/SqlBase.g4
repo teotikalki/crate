@@ -489,8 +489,8 @@ quotedIdentifier
     ;
 
 numericLiteral
-    : DECIMAL_VALUE                                                                   #decimalLiteral
-    | INTEGER_VALUE                                                                   #integerLiteral
+    : DECIMAL_VALUE                                                                  #decimalLiteral
+    | INTEGER_VALUE                                                                  #integerLiteral
     ;
 
 booleanLiteral
@@ -520,7 +520,7 @@ objectKeyValue
     ;
 
 insertSource
-   : VALUES  valuesList ( ',' valuesList )*
+   : VALUES  valuesList (',' valuesList)*
    | query
    | '(' query ')'
    ;
@@ -530,11 +530,11 @@ valuesList
     ;
 
 identList
-    : '(' ident ( ',' ident )* ')'
+    : '(' ident (',' ident)* ')'
     ;
 
 columnList
-    : numericExpr ( ',' numericExpr )*
+    : numericExpr (',' numericExpr)*
     ;
 
 assignment

@@ -148,18 +148,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitInsert(SqlBaseParser.InsertContext context) {
-
-        List<String> columns = null;
-        if (context.identList() != null) {
-            columns = visit(context.identList().ident(), Expression.class)
-                .stream()
-                .map(Expression::toString)
-                .collect(toList());
-        }
+        List<String> columns = Optional.ofNullable(context.identList())
+            .map(this::columns).orElse(ImmutableList.of());
 
         List<Assignment> onDuplicateKeyAssignments = Optional.ofNullable(
-            visit(context.assignment(), Assignment.class))
-            .orElse(null);
+            visit(context.assignment(), Assignment.class)).orElse(ImmutableList.of());
 
         if (context.insertSource().query() != null) {
             return new InsertFromSubquery(
@@ -174,6 +167,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visit(context.insertSource().valuesList(), ValuesList.class),
             columns,
             onDuplicateKeyAssignments);
+    }
+
+    private List<String> columns(SqlBaseParser.IdentListContext context) {
+        return context.ident()
+            .stream()
+            .map(RuleContext::getText)
+            .collect(toList());
     }
 
     @Override
@@ -369,7 +369,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.SET() != null) {
             return new AlterTable(name, (GenericProperties) visit(context.genericProperties()));
         }
-        return new AlterTable(name, context.identList().ident().stream().map(RuleContext::getText).collect(toList()));
+        return new AlterTable(name, columns(context.identList()));
     }
 
     @Override
@@ -378,9 +378,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.RESET() != null) {
             return new AlterBlobTable(name, (GenericProperties) visit(context.genericProperties()));
         }
-        return new AlterBlobTable(
-            name,
-            context.identList().ident().stream().map(RuleContext::getText).collect(toList()));
+        return new AlterBlobTable(name, columns(context.identList()));
     }
 
     @Override
