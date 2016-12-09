@@ -106,6 +106,36 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitCreateAnalyzer(SqlBaseParser.CreateAnalyzerContext context) {
+        return new CreateAnalyzer(
+            context.name.getText(),
+            null,
+            visit(context.analyzerElement(), AnalyzerElement.class)
+        );
+    }
+
+    @Override
+    public Node visitCharFilters(SqlBaseParser.CharFiltersContext context) {
+        return new CharFilters(visit(context.namedProperties(), NamedProperties.class));
+    }
+
+    @Override
+    public Node visitTokenFilters(SqlBaseParser.TokenFiltersContext context) {
+        return new TokenFilters(visit(context.namedProperties(), NamedProperties.class));
+    }
+
+    @Override
+    public Node visitTokenizer(SqlBaseParser.TokenizerContext context) {
+        return new Tokenizer((NamedProperties) visit(context.namedProperties()));
+    }
+
+    @Override
+    public Node visitNamedProperties(SqlBaseParser.NamedPropertiesContext context) {
+        return new NamedProperties(context.ident().getText(),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
     public Node visitRestore(SqlBaseParser.RestoreContext context) {
         if (context.ALL() != null) {
             return new RestoreSnapshot(getQualifiedName(context.qname()),

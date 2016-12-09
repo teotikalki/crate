@@ -355,7 +355,7 @@ public class TestStatementBuilder {
             "   filter_3" +
             " )" +
             ")");
-        printStatement("create analyzer my_builtin extends builtin WITH (" +
+        printStatement("create analyzer \"My_Builtin\" extends builtin WITH (" +
             "  over='write'" +
             ")");
     }

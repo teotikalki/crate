@@ -472,8 +472,8 @@ createStmt
     | CREATE BLOB TABLE table numShards=clusteredInto? withProperties?               #createBlobTable
     | CREATE REPOSITORY name=ident TYPE type=ident withProperties?                   #createRepository
     | CREATE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?        #createSnapshot
-//    | CREATE ANALYZER ident (EXTENDS ident)?
-//        WITH? '(' analyzerElement ( ',' analyzerElement )* ')'                     #createAnalyzer
+    | CREATE ANALYZER name=ident (EXTENDS extendedname=ident)?
+        WITH? '(' analyzerElement ( ',' analyzerElement )* ')'                       #createAnalyzer
     ;
 
 alterTableDefinition
