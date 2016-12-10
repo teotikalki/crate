@@ -882,6 +882,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitCurrentSchema(SqlBaseParser.CurrentSchemaContext context) {
+        return new FunctionCall(QualifiedName.of("current_schema"), ImmutableList.of());
+
+    }
+
+    @Override
     public Node visitSubscript(SqlBaseParser.SubscriptContext context) {
         return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
     }
