@@ -892,7 +892,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
     }
 
-//    @Override
+    @Override
+    public Node visitNestedExpression(SqlBaseParser.NestedExpressionContext context) {
+        return visit(context.expr());
+    }
+
+    //    @Override
 //    public Node visitSubscriptSafe(SqlBaseParser.SubscriptSafeContext context) {
 //        return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
 //    }

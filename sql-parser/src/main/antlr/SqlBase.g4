@@ -279,7 +279,8 @@ primaryExpr
     | ident                                                                          #columnReference
     | qname '(' (setQuant? expr (',' expr)*)? ')' over?                              #functionCall
     | '(' query ')'                                                                  #subqueryExpression
-    | '(' valueExpression ')'                                                        #valueExpressionAlternative
+    // This case handles a simple parenthesized expression.
+    | '(' expr ')'                                                                   #nestedExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                           #exists
     | value=primaryExpr '[' index=valueExpression ']'                                #subscript

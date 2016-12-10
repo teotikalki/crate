@@ -775,7 +775,6 @@ public class TestStatementBuilder {
         assertThat(multipleArrayLiteral.values().get(3), instanceOf(ArrayLiteral.class));
     }
 
-
     @Test
     public void testParameterNode() throws Exception {
         printStatement("select foo, $1 from foo where a = $2 or a = $3");
