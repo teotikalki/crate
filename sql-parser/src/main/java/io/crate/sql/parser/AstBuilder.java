@@ -227,7 +227,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitResetGlobal(SqlBaseParser.ResetGlobalContext context) {
-        return new ResetStatement(visit(context.columnList().numericExpr(), Expression.class));
+        return new ResetStatement(visit(context.columnList().primaryExpr(), Expression.class));
     }
 
     @Override
@@ -311,7 +311,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitPrimaryKeyConstraint(SqlBaseParser.PrimaryKeyConstraintContext context) {
-        return new PrimaryKeyConstraint(visit(context.columnList().numericExpr(), Expression.class));
+        return new PrimaryKeyConstraint(visit(context.columnList().primaryExpr(), Expression.class));
     }
 
     @Override
@@ -331,13 +331,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new IndexDefinition(
             context.name.getText(),
             context.method.getText(),
-            visit(context.columnList().numericExpr(), Expression.class),
+            visit(context.columnList().primaryExpr(), Expression.class),
             visitIfPresent(context.props, GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitPartitionedBy(SqlBaseParser.PartitionedByContext context) {
-        return new PartitionedBy(visit(context.columnList().numericExpr(), Expression.class));
+        return new PartitionedBy(visit(context.columnList().primaryExpr(), Expression.class));
     }
 
     @Override
@@ -412,12 +412,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitSetGlobalAssignment(SqlBaseParser.SetGlobalAssignmentContext context) {
-        return new Assignment((Expression) visit(context.numericExpr()), (Expression) visit(context.expr()));
+        return new Assignment((Expression) visit(context.primaryExpr()), (Expression) visit(context.expr()));
     }
 
     @Override
     public Node visitAssignment(SqlBaseParser.AssignmentContext context) {
-        return new Assignment((Expression) visit(context.numericExpr()), (Expression) visit(context.expr()));
+        return new Assignment((Expression) visit(context.primaryExpr()), (Expression) visit(context.expr()));
     }
 
     @Override

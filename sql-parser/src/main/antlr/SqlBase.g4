@@ -223,7 +223,7 @@ relationPrimary
     ;
 
 tableWithPartition
-    : qname ( PARTITION '(' assignment ( ',' assignment )* ')' )?
+    : qname ( PARTITION '(' assignment ( ',' assignment )* ')')?
     ;
 
 table
@@ -266,14 +266,14 @@ predicate[ParserRuleContext value]
     ;
 
 valueExpression
-    : numericExpr                                                                       #valueExpressionDefault
+    : primaryExpr                                                                       #valueExpressionDefault
     | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
     | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
     | left=valueExpression CONCAT right=valueExpression                                 #concatenation
     ;
 
-numericExpr
+primaryExpr
     : parameterOrLiteral                                                             #defaultParamOrLiteral
     | qname '(' ASTERISK ')' over?                                                   #functionCall
     | ident                                                                          #columnReference
@@ -281,7 +281,7 @@ numericExpr
     | '(' query ')'                                                                  #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                           #exists
-    | value=numericExpr '[' index=valueExpression ']'                                #subscript
+    | value=primaryExpr '[' index=valueExpression ']'                                #subscript
     | ident ('.' ident)*                                                             #dereference
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=integerLiteral')')?                           #specialDateTimeFunction
@@ -349,7 +349,7 @@ stringLiteral
 //    ;
 
 subscriptSafe
-    : qname ('[' numericExpr ']')*
+    : qname ('[' primaryExpr ']')*
     ;
 
 // not used in crate
@@ -445,7 +445,7 @@ arrayLiteral
     ;
 
 objectLiteral
-    : '{' (objectKeyValue (',' objectKeyValue)* )? '}'
+    : '{' (objectKeyValue (',' objectKeyValue)*)? '}'
     ;
 
 objectKeyValue
@@ -463,11 +463,11 @@ valuesList
     ;
 
 columnList
-    : numericExpr (',' numericExpr)*
+    : primaryExpr (',' primaryExpr)*
     ;
 
 assignment
-    : numericExpr EQ expr
+    : primaryExpr EQ expr
     ;
 
 // COPY STATEMENTS
@@ -483,7 +483,7 @@ assignment
 // CREATE STATEMENTS
 
 createStmt
-    : CREATE TABLE ( IF NOT EXISTS )? table
+    : CREATE TABLE (IF NOT EXISTS)? table
         '(' tableElement (',' tableElement)* ')'
          crateTableOption* props=withGenericProps?                                   #createTable
     | CREATE BLOB TABLE table numShards=clusteredInto? props=withGenericProps?       #createBlobTable
@@ -548,7 +548,7 @@ dataType
     ;
 
 objectTypeDefinition
-    : OBJECT ( '(' objectType ')' )? objectColumns?
+    : OBJECT ('(' objectType ')')? objectColumns?
     ;
 
 arrayTypeDefinition
@@ -593,7 +593,7 @@ clusteredInto
     ;
 
 clusteredBy
-    : CLUSTERED (BY '(' routing=numericExpr ')')? (INTO numShards=parameterOrSimpleLiteral SHARDS)?
+    : CLUSTERED (BY '(' routing=primaryExpr ')')? (INTO numShards=parameterOrSimpleLiteral SHARDS)?
     ;
 
 partitionedBy
@@ -641,11 +641,11 @@ allOrTableWithPartitionList
     ;
 
 setGlobalAssignment
-    : name=numericExpr (EQ | TO) value=expr
+    : name=primaryExpr (EQ | TO) value=expr
     ;
 
 setAssignment
-    : name=numericExpr (EQ | TO) value=setExprList
+    : name=primaryExpr (EQ | TO) value=setExprList
     ;
 
 setExprList
