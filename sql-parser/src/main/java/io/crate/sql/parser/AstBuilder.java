@@ -124,6 +124,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitShowTransaction(SqlBaseParser.ShowTransactionContext contex) {
+        return new ShowTransaction();
+    }
+
+    @Override
     public Node visitDropTable(SqlBaseParser.DropTableContext context) {
         return new DropTable((Table) visit(context.table()), context.EXISTS() != null);
     }

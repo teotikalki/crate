@@ -83,6 +83,7 @@ statement
     | REFRESH TABLE tableWithPartitionList                                                  #refreshTable
     | UPDATE aliasedRelation SET assignment ( ',' assignment )* where?                      #update
     | DELETE FROM aliasedRelation where?                                                    #delete
+    | SHOW TRANSACTION ISOLATION LEVEL                                                      #showTransaction
     | SHOW CREATE TABLE table                                                               #showCreateTable
     | SHOW TABLES ((FROM | IN) qname)? (LIKE pattern=stringLiteral | where)?                #showTables
     | SHOW SCHEMAS (LIKE pattern=stringLiteral | where)?                                    #showSchemas
