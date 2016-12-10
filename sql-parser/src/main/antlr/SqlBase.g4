@@ -540,7 +540,8 @@ dataType
     ;
 
 objectTypeDefinition
-    : OBJECT ('(' objectType ')')? objectColumns?
+    : OBJECT ('(' type=(DYNAMIC | STRICT | IGNORED) ')')?
+             (AS '(' columnDefinition ( ',' columnDefinition )* ')')?
     ;
 
 arrayTypeDefinition
@@ -549,16 +550,6 @@ arrayTypeDefinition
 
 setTypeDefinition
     : SET '(' dataType ')'
-    ;
-
-objectType
-    : DYNAMIC
-    | STRICT
-    | IGNORED
-    ;
-
-objectColumns
-    : AS '(' columnDefinition ( ',' columnDefinition )* ')'
     ;
 
 columnConstraint

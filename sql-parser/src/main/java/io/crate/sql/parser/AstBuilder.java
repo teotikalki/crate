@@ -30,6 +30,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static java.util.stream.Collectors.toList;
@@ -69,7 +70,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
                 (Table) visit(context.table()),
                 visit(context.tableElement(), TableElement.class),
                 visit(context.crateTableOption(), CrateTableOption.class),
-                // change to java optional
                 visitIfPresent(context.props, GenericProperties.class).orElse(null),
                 true);
         }
@@ -77,7 +77,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             (Table) visit(context.table()),
             visit(context.tableElement(), TableElement.class),
             visit(context.crateTableOption(), CrateTableOption.class),
-            // change to java optional
             visitIfPresent(context.props, GenericProperties.class).orElse(null),
             false);
     }
@@ -1004,13 +1003,29 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitDataType(SqlBaseParser.DataTypeContext context) {
         if (context.objectTypeDefinition() != null) {
-            return null;
+            return new ObjectColumnType(
+                getObjectType(context.objectTypeDefinition().type),
+                visit(context.objectTypeDefinition().columnDefinition(), ColumnDefinition.class));
         } else if (context.arrayTypeDefinition() != null) {
             CollectionColumnType.array((ColumnType) visit(context.setTypeDefinition().dataType()));
         } else if (context.setTypeDefinition() != null) {
             CollectionColumnType.set((ColumnType) visit(context.setTypeDefinition().dataType()));
         }
-        return new ColumnType(context.getText().toLowerCase());
+        return new ColumnType(context.getText().toLowerCase(Locale.ENGLISH));
+    }
+
+    private String getObjectType(Token type) {
+        if (type == null) return null;
+        switch (type.getType()) {
+            case SqlBaseLexer.DYNAMIC:
+                return type.getText().toLowerCase(Locale.ENGLISH);
+            case SqlBaseLexer.STRICT:
+                return type.getText().toLowerCase(Locale.ENGLISH);
+            case SqlBaseLexer.IGNORED:
+                return type.getText().toLowerCase(Locale.ENGLISH);
+        }
+
+        throw new UnsupportedOperationException("Unsupported object type: " + type.getText());
     }
 
     @Override
