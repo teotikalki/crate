@@ -60,11 +60,11 @@ grammar SqlBase;
 //        }
 //}
 
-//@rulecatch {
-//    catch (RecognitionException re) {
-//        throw new ParsingException(getErrorMessage(re, getTokenNames()), re);
-//    }
-//}
+@rulecatch {
+    catch (RecognitionException re) {
+        throw new ParsingException(getErrorMessage(re, getTokenNames()), re);
+    }
+}
 
 singleStatement
     : statement EOF
@@ -78,10 +78,9 @@ statement
     : query                                                                                 #default
     | BEGIN                                                                                 #begin
     | EXPLAIN statement                                                                     #explain
-    | RESET GLOBAL columnList                                                               #resetGlobal
-    | OPTIMIZE TABLE tableWithPartitionList props=withGenericProps?                         #optimize
+    | OPTIMIZE TABLE tableWithPartitionList withGenericProps?                               #optimize
     | REFRESH TABLE tableWithPartitionList                                                  #refreshTable
-    | UPDATE aliasedRelation SET assignment ( ',' assignment )* where?                      #update
+    | UPDATE aliasedRelation SET assignment (',' assignment)* where?                        #update
     | DELETE FROM aliasedRelation where?                                                    #delete
     | SHOW TRANSACTION ISOLATION LEVEL                                                      #showTransaction
     | SHOW CREATE TABLE table                                                               #showCreateTable
@@ -94,14 +93,17 @@ statement
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterTableProperties
     | ALTER BLOB TABLE alterTableDefinition
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterBlobTableProperties
+    | RESET GLOBAL '(' primaryExpr (',' primaryExpr)* ')'                                   #resetGlobal
     | SET (SESSION | LOCAL)? name=qname (EQ | TO) (DEFAULT | setExpr (',' setExpr)*)        #set
     | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
     | INSERT INTO table ('(' ident (',' ident)* ')')? insertSource
         (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                           #insert
-    | RESTORE SNAPSHOT qname allOrTableWithPartitionList props=withGenericProps?            #restore
-//    | COPY copyStatement
+    | RESTORE SNAPSHOT qname allOrTableWithPartitionList withGenericProps?                  #restore
+    | COPY tableWithPartition FROM path=expr withGenericProps?                              #copyFrom
+    | COPY tableWithPartition columnList? where?
+        TO DIRECTORY? path=expr withGenericProps?                                           #copyTo
     | dropStmt                                                                              #drop
     | createStmt                                                                            #create
     ;
@@ -197,19 +199,6 @@ joinType
 joinCriteria
     : ON booleanExpression
     | USING '(' ident (',' ident)* ')'
-    ;
-
-sampledRelation
-    : aliasedRelation (TABLESAMPLE sampleType '(' percentage=expr ')' stratifyOn?)?
-    ;
-
-stratifyOn
-    : STRATIFY ON '(' expr (',' expr)* ')'
-    ;
-
-sampleType
-    : BERNOULLI
-    | SYSTEM
     ;
 
 aliasedRelation
@@ -355,6 +344,20 @@ subscriptSafe
     ;
 
 // not used in crate
+
+sampledRelation
+    : aliasedRelation (TABLESAMPLE sampleType '(' percentage=expr ')' stratifyOn?)?
+    ;
+
+stratifyOn
+    : STRATIFY ON '(' expr (',' expr)* ')'
+    ;
+
+sampleType
+    : BERNOULLI
+    | SYSTEM
+    ;
+
 over
     : OVER '('
         (PARTITION BY partition+=expr (',' partition+=expr)*)?
@@ -376,6 +379,7 @@ frameBound
     | CURRENT ROW                                                                    #currentRowBound
     | expr boundType=(PRECEDING | FOLLOWING)                                         #boundedFrame
     ;
+//
 
 cmpOp
     : EQ | NEQ | LT | LTE | GT | GTE | REGEX_MATCH | REGEX_NO_MATCH | REGEX_MATCH_CI | REGEX_NO_MATCH_CI
@@ -457,22 +461,12 @@ valuesList
     ;
 
 columnList
-    : primaryExpr (',' primaryExpr)*
+    : '(' primaryExpr (',' primaryExpr)* ')'
     ;
 
 assignment
     : primaryExpr EQ expr
     ;
-
-//copyStatement
-//    : tableWithPartition (
-//        (FROM) => FROM expression ( WITH '(' genericProperties ')' )?
-//        |
-//        ( '(' columnList ')' )? whereClause? TO DIRECTORY? expression ( WITH '(' genericProperties ')' )?
-//    )
-//    ;
-
-// CREATE STATEMENTS
 
 createStmt
     : CREATE TABLE (IF NOT EXISTS)? table
@@ -496,8 +490,8 @@ crateTableOption
 
 tableElement
     : columnDefinition                                                               #columndDef
-    | PRIMARY_KEY '(' columnList ')'                                                 #primaryKeyConstraint
-    | INDEX name=ident USING method=ident '(' columnList ')' props=withGenericProps? #indexDefinition
+    | PRIMARY_KEY columnList                                                         #primaryKeyConstraint
+    | INDEX name=ident USING method=ident columnList props=withGenericProps?         #indexDefinition
     ;
 
 columnDefinition
@@ -580,7 +574,7 @@ clusteredBy
     ;
 
 partitionedBy
-    : PARTITIONED BY '(' columnList ')'
+    : PARTITIONED BY columnList
     ;
 
 extendsAnalyzer
