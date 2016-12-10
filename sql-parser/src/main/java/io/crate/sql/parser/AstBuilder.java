@@ -178,13 +178,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             onDuplicateKeyAssignments);
     }
 
-//    private List<String> columns(SqlBaseParser.IdentListContext context) {
-//        return context.ident()
-//            .stream()
-//            .map(RuleContext::getText)
-//            .collect(toList());
-//    }
-
     @Override
     public Node visitValuesList(SqlBaseParser.ValuesListContext context) {
         return new ValuesList(visit(context.expr(), Expression.class));
@@ -207,11 +200,23 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitSet(SqlBaseParser.SetContext context) {
+        Assignment setAssignment = prepareSetAssignment(context);
         if (context.LOCAL() != null) {
-            return new SetStatement(SetStatement.Scope.LOCAL, (Assignment) visit(context.setAssignment()));
+            return new SetStatement(SetStatement.Scope.LOCAL, setAssignment);
         } else {
-            return new SetStatement(SetStatement.Scope.SESSION, (Assignment) visit(context.setAssignment()));
+            return new SetStatement(SetStatement.Scope.SESSION, setAssignment);
         }
+    }
+
+    private Assignment prepareSetAssignment(SqlBaseParser.SetContext context) {
+        Expression settingName = new QualifiedNameReference(getQualifiedName(context.name));
+        Assignment setAssignment;
+        if (context.DEFAULT() != null) {
+            setAssignment = new Assignment(settingName, ImmutableList.of());
+        } else {
+            setAssignment = new Assignment(settingName, visit(context.setExpr(), Expression.class));
+        }
+        return setAssignment;
     }
 
     @Override
@@ -418,17 +423,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitAssignment(SqlBaseParser.AssignmentContext context) {
         return new Assignment((Expression) visit(context.primaryExpr()), (Expression) visit(context.expr()));
-    }
-
-    @Override
-    public Node visitSetAssignment(SqlBaseParser.SetAssignmentContext context) {
-        if (context.value.DEFAULT() != null) {
-            return new Assignment((QualifiedNameReference) visit(context.name), ImmutableList.of());
-        }
-        return new Assignment(
-            (QualifiedNameReference) visit(context.name),
-            visit(context.value.setExpr(), Expression.class)
-        );
     }
 
     // query specification

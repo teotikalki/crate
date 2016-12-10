@@ -94,7 +94,7 @@ statement
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterTableProperties
     | ALTER BLOB TABLE alterTableDefinition
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterBlobTableProperties
-    | SET (SESSION | LOCAL)? setAssignment                                                  #set
+    | SET (SESSION | LOCAL)? name=qname (EQ | TO) (DEFAULT | setExpr (',' setExpr)*)        #set
     | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
@@ -279,6 +279,7 @@ primaryExpr
     | ident                                                                          #columnReference
     | qname '(' (setQuant? expr (',' expr)*)? ')' over?                              #functionCall
     | '(' query ')'                                                                  #subqueryExpression
+    | '(' valueExpression ')'                                                        #valueExpressionAlternative
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                           #exists
     | value=primaryExpr '[' index=valueExpression ']'                                #subscript
@@ -393,14 +394,6 @@ whenClause
     : WHEN condition=expr THEN result=expr
     ;
 
-viewRefresh
-    : REFRESH r=integerLiteral
-    ;
-
-tableContentsSource
-    : AS query
-    ;
-
 qname
     : ident ('.' ident)*
     ;
@@ -470,7 +463,6 @@ assignment
     : primaryExpr EQ expr
     ;
 
-// COPY STATEMENTS
 //copyStatement
 //    : tableWithPartition (
 //        (FROM) => FROM expression ( WITH '(' genericProperties ')' )?
@@ -478,7 +470,6 @@ assignment
 //        ( '(' columnList ')' )? whereClause? TO DIRECTORY? expression ( WITH '(' genericProperties ')' )?
 //    )
 //    ;
-// END COPY STATEMENT
 
 // CREATE STATEMENTS
 
@@ -642,15 +633,6 @@ allOrTableWithPartitionList
 
 setGlobalAssignment
     : name=primaryExpr (EQ | TO) value=expr
-    ;
-
-setAssignment
-    : name=primaryExpr (EQ | TO) value=setExprList
-    ;
-
-setExprList
-    : DEFAULT
-    | setExpr (',' setExpr)*
     ;
 
 setExpr
