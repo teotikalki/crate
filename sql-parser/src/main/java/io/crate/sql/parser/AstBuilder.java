@@ -26,7 +26,6 @@ import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.Iterator;
 import java.util.List;
@@ -976,11 +975,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     // Literals
 
     @Override
-    public Node visitDateLiteral(SqlBaseParser.DateLiteralContext context) {
-        throw new NotImplementedException();
-    }
-
-    @Override
     public Node visitNullLiteral(SqlBaseParser.NullLiteralContext context) {
         return NullLiteral.INSTANCE;
     }
@@ -1008,6 +1002,21 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitArrayLiteral(SqlBaseParser.ArrayLiteralContext context) {
         return new ArrayLiteral(visit(context.expr(), Expression.class));
+    }
+
+    @Override
+    public Node visitDateLiteral(SqlBaseParser.DateLiteralContext context) {
+        return new DateLiteral(context.STRING().getText());
+    }
+
+    @Override
+    public Node visitTimeLiteral(SqlBaseParser.TimeLiteralContext context) {
+        return new TimeLiteral(context.STRING().getText());
+    }
+
+    @Override
+    public Node visitTimestampLiteral(SqlBaseParser.TimestampLiteralContext context) {
+        return new TimestampLiteral(context.STRING().getText());
     }
 
     @Override

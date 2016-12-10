@@ -286,7 +286,7 @@ identExpr
 
 parameterOrLiteral
     : parameterOrSimpleLiteral
-    | dateLiteral
+    | datetimeLiteral
     | arrayLiteral
     | objectLiteral
     ;
@@ -391,10 +391,10 @@ setCmpQuantifier
     : ANY | SOME | ALL
     ;
 
-dateLiteral
-    : DATE STRING
-    | TIME STRING
-    | TIMESTAMP STRING
+datetimeLiteral
+    : DATE STRING                                                                    #dateLiteral
+    | TIME STRING                                                                    #timeLiteral
+    | TIMESTAMP STRING                                                               #timestampLiteral
     ;
 
 whenClause
