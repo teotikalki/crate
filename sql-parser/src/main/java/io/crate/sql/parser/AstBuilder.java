@@ -338,7 +338,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitPrimaryKeyConstraint(SqlBaseParser.PrimaryKeyConstraintContext context) {
-        return new PrimaryKeyConstraint(visit(context.columns().primaryExpr(), Expression.class));
+        return new PrimaryKeyConstraint(visit(context.columns().primaryExpression(), Expression.class));
     }
 
     @Override
@@ -358,13 +358,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new IndexDefinition(
             context.name.getText(),
             context.method.getText(),
-            visit(context.columns().primaryExpr(), Expression.class),
+            visit(context.columns().primaryExpression(), Expression.class),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitPartitionedBy(SqlBaseParser.PartitionedByContext context) {
-        return new PartitionedBy(visit(context.columns().primaryExpr(), Expression.class));
+        return new PartitionedBy(visit(context.columns().primaryExpression(), Expression.class));
     }
 
     @Override
@@ -439,12 +439,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitSetGlobalAssignment(SqlBaseParser.SetGlobalAssignmentContext context) {
-        return new Assignment((Expression) visit(context.primaryExpr()), (Expression) visit(context.expr()));
+        return new Assignment((Expression) visit(context.primaryExpression()), (Expression) visit(context.expr()));
     }
 
     @Override
     public Node visitAssignment(SqlBaseParser.AssignmentContext context) {
-        return new Assignment((Expression) visit(context.primaryExpr()), (Expression) visit(context.expr()));
+        return new Assignment((Expression) visit(context.primaryExpression()), (Expression) visit(context.expr()));
     }
 
     // Query specification
