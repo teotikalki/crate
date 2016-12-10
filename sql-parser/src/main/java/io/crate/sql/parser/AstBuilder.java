@@ -58,8 +58,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitOptimize(SqlBaseParser.OptimizeContext context) {
         return new OptimizeStatement(
-            visit(context.tableWithPartitionList().tableWithPartition(), Table.class),
-            visitIfPresent(context.withGenericProps(), GenericProperties.class).orElse(null));
+            visit(context.tableWithPartitions().tableWithPartition(), Table.class),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -70,14 +70,14 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
                 (Table) visit(context.table()),
                 visit(context.tableElement(), TableElement.class),
                 visit(context.crateTableOption(), CrateTableOption.class),
-                visitIfPresent(context.props, GenericProperties.class).orElse(null),
+                visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null),
                 true);
         }
         return new CreateTable(
             (Table) visit(context.table()),
             visit(context.tableElement(), TableElement.class),
             visit(context.crateTableOption(), CrateTableOption.class),
-            visitIfPresent(context.props, GenericProperties.class).orElse(null),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null),
             false);
     }
 
@@ -86,35 +86,35 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new CreateBlobTable(
             (Table) visit(context.table()),
             visitIfPresent(context.numShards, ClusteredBy.class).orElse(null),
-            visitIfPresent(context.props, GenericProperties.class).orElse(null));
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitCreateRepository(SqlBaseParser.CreateRepositoryContext context) {
         return new CreateRepository(context.name.getText(), context.type.getText(),
-            visitIfPresent(context.props, GenericProperties.class).orElse(null));
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitCreateSnapshot(SqlBaseParser.CreateSnapshotContext context) {
-        if (context.allOrTableWithPartitionList().ALL() != null) {
+        if (context.ALL() != null) {
             return new CreateSnapshot(getQualifiedName(context.qname()),
-                visitIfPresent(context.props, GenericProperties.class).orElse(null));
+                visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
         }
         return new CreateSnapshot(getQualifiedName(context.qname()),
-            visit(context.allOrTableWithPartitionList().tableWithPartitionList().tableWithPartition(), Table.class),
-            visitIfPresent(context.props, GenericProperties.class).orElse(null));
+            visit(context.tableWithPartitions().tableWithPartition(), Table.class),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitRestore(SqlBaseParser.RestoreContext context) {
-        if (context.allOrTableWithPartitionList().ALL() != null) {
+        if (context.ALL() != null) {
             return new RestoreSnapshot(getQualifiedName(context.qname()),
-                visitIfPresent(context.withGenericProps(), GenericProperties.class).orElse(null));
+                visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
         }
         return new RestoreSnapshot(getQualifiedName(context.qname()),
-            visit(context.allOrTableWithPartitionList().tableWithPartitionList().tableWithPartition(), Table.class),
-            visitIfPresent(context.withGenericProps(), GenericProperties.class).orElse(null));
+            visit(context.tableWithPartitions().tableWithPartition(), Table.class),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -157,13 +157,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new CopyFrom(
             (Table) visit(context.tableWithPartition()),
             (Expression) visit(context.path),
-            visitIfPresent(context.withGenericProps(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitCopyTo(SqlBaseParser.CopyToContext context) {
-        List<Expression> columns = Optional.ofNullable(context.columnList())
-            .map(list -> visit(list.primaryExpr(), Expression.class))
+        List<Expression> columns = Optional.ofNullable(context.columns())
+            .map(list -> visit(list.primaryExpression(), Expression.class))
             .orElse(null);
 
         return new CopyTo(
@@ -172,7 +172,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             visitIfPresent(context.where(), Expression.class).orElse(null),
             context.DIRECTORY() != null,
             (Expression) visit(context.path),
-            visitIfPresent(context.withGenericProps(), GenericProperties.class).orElse(null));
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -195,13 +195,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
         return new InsertFromValues(
             (Table) visit(context.table()),
-            visit(context.insertSource().valuesList(), ValuesList.class),
+            visit(context.insertSource().values(), ValuesList.class),
             columns,
             onDuplicateKeyAssignments);
     }
 
     @Override
-    public Node visitValuesList(SqlBaseParser.ValuesListContext context) {
+    public Node visitValues(SqlBaseParser.ValuesContext context) {
         return new ValuesList(visit(context.expr(), Expression.class));
     }
 
@@ -254,7 +254,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitResetGlobal(SqlBaseParser.ResetGlobalContext context) {
-        return new ResetStatement(visit(context.primaryExpr(), Expression.class));
+        return new ResetStatement(visit(context.primaryExpression(), Expression.class));
     }
 
     @Override
@@ -302,7 +302,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitRefreshTable(SqlBaseParser.RefreshTableContext context) {
-        return new RefreshStatement(visit(context.tableWithPartitionList().tableWithPartition(), Table.class));
+        return new RefreshStatement(visit(context.tableWithPartitions().tableWithPartition(), Table.class));
     }
 
     @Override
@@ -338,7 +338,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitPrimaryKeyConstraint(SqlBaseParser.PrimaryKeyConstraintContext context) {
-        return new PrimaryKeyConstraint(visit(context.columnList().primaryExpr(), Expression.class));
+        return new PrimaryKeyConstraint(visit(context.columns().primaryExpr(), Expression.class));
     }
 
     @Override
@@ -350,7 +350,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitColumnIndexConstraint(SqlBaseParser.ColumnIndexConstraintContext context) {
         return new IndexColumnConstraint(
             context.method.getText(),
-            visitIfPresent(context.props, GenericProperties.class).orElse(null));
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
@@ -358,13 +358,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new IndexDefinition(
             context.name.getText(),
             context.method.getText(),
-            visit(context.columnList().primaryExpr(), Expression.class),
-            visitIfPresent(context.props, GenericProperties.class).orElse(null));
+            visit(context.columns().primaryExpr(), Expression.class),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitPartitionedBy(SqlBaseParser.PartitionedByContext context) {
-        return new PartitionedBy(visit(context.columnList().primaryExpr(), Expression.class));
+        return new PartitionedBy(visit(context.columns().primaryExpr(), Expression.class));
     }
 
     @Override
@@ -447,7 +447,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new Assignment((Expression) visit(context.primaryExpr()), (Expression) visit(context.expr()));
     }
 
-    // query specification
+    // Query specification
 
     @Override
     public Node visitQuery(SqlBaseParser.QueryContext context) {
@@ -643,7 +643,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new FrameBound(getBoundedFrameBoundType(context.boundType), (Expression) visit(context.expr()));
     }
 
-    // ***************** boolean expressions ******************
+    // Boolean expressions
 
     @Override
     public Node visitLogicalNot(SqlBaseParser.LogicalNotContext context) {
@@ -658,7 +658,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             (Expression) visit(context.right));
     }
 
-    // *************** from clause *****************
+    // From clause
 
     @Override
     public Node visitJoinRelation(SqlBaseParser.JoinRelationContext context) {
@@ -732,7 +732,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return visit(context.relation());
     }
 
-    // ********************* predicates *******************
+    // Predicates
 
     @Override
     public Node visitPredicated(SqlBaseParser.PredicatedContext context) {

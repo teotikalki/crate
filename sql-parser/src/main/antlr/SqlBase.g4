@@ -78,8 +78,8 @@ statement
     : query                                                                                 #default
     | BEGIN                                                                                 #begin
     | EXPLAIN statement                                                                     #explain
-    | OPTIMIZE TABLE tableWithPartitionList withGenericProps?                               #optimize
-    | REFRESH TABLE tableWithPartitionList                                                  #refreshTable
+    | OPTIMIZE TABLE tableWithPartitions withProperties?                                    #optimize
+    | REFRESH TABLE tableWithPartitions                                                     #refreshTable
     | UPDATE aliasedRelation SET assignment (',' assignment)* where?                        #update
     | DELETE FROM aliasedRelation where?                                                    #delete
     | SHOW TRANSACTION ISOLATION LEVEL                                                      #showTransaction
@@ -93,28 +93,24 @@ statement
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterTableProperties
     | ALTER BLOB TABLE alterTableDefinition
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterBlobTableProperties
-    | RESET GLOBAL '(' primaryExpr (',' primaryExpr)* ')'                                   #resetGlobal
+    | RESET GLOBAL primaryExpression (',' primaryExpression)*                               #resetGlobal
     | SET (SESSION | LOCAL)? name=qname (EQ | TO) (DEFAULT | setExpr (',' setExpr)*)        #set
     | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
     | KILL ALL                                                                              #killAll
     | KILL jobId                                                                            #kill
     | INSERT INTO table ('(' ident (',' ident)* ')')? insertSource
         (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                           #insert
-    | RESTORE SNAPSHOT qname allOrTableWithPartitionList withGenericProps?                  #restore
-    | COPY tableWithPartition FROM path=expr withGenericProps?                              #copyFrom
-    | COPY tableWithPartition columnList? where?
-        TO DIRECTORY? path=expr withGenericProps?                                           #copyTo
-    | dropStmt                                                                              #drop
+    | RESTORE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?              #restore
+    | COPY tableWithPartition FROM path=expr withProperties?                                #copyFrom
+    | COPY tableWithPartition columns? where?
+        TO DIRECTORY? path=expr withProperties?                                             #copyTo
+    | DROP BLOB TABLE (IF EXISTS)? table                                                    #dropBlobTable
+    | DROP TABLE (IF EXISTS)? table                                                         #dropTable
+    | DROP ALIAS name=qname                                                                 #dropAlias
+    | DROP REPOSITORY name=ident                                                            #dropRepository
+    | DROP SNAPSHOT name=qname                                                              #dropSnapshot
     | createStmt                                                                            #create
     ;
-
-dropStmt
-	: DROP BLOB TABLE (IF EXISTS)? table                                                    #dropBlobTable
-	| DROP TABLE (IF EXISTS)? table                                                         #dropTable
-	| DROP ALIAS name=qname                                                                 #dropAlias
-	| DROP REPOSITORY name=ident                                                            #dropRepository
-	| DROP SNAPSHOT name=qname                                                              #dropSnapshot
-	;
 
 query
     :  with? queryNoWith
@@ -129,11 +125,6 @@ queryNoWith:
       (ORDER BY sortItem (',' sortItem)*)?
       (LIMIT limit=paramOrInteger)?
       (OFFSET offset=paramOrInteger)?
-    ;
-
-paramOrInteger
-    : parameterExpr
-    | integerLiteral
     ;
 
 queryTerm
@@ -255,14 +246,15 @@ predicate[ParserRuleContext value]
     ;
 
 valueExpression
-    : primaryExpr                                                                       #valueExpressionDefault
-    | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
-    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
-    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
-    | left=valueExpression CONCAT right=valueExpression                                 #concatenation
+    : primaryExpression                                                              #valueExpressionDefault
+    | operator=(MINUS | PLUS) valueExpression                                        #arithmeticUnary
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT)
+        right=valueExpression                                                        #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression             #arithmeticBinary
+    | left=valueExpression CONCAT right=valueExpression                              #concatenation
     ;
 
-primaryExpr
+primaryExpression
     : parameterOrLiteral                                                             #defaultParamOrLiteral
     | qname '(' ASTERISK ')' over?                                                   #functionCall
     | ident                                                                          #columnReference
@@ -272,7 +264,7 @@ primaryExpr
     | '(' expr ')'                                                                   #nestedExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                           #exists
-    | value=primaryExpr '[' index=valueExpression ']'                                #subscript
+    | value=primaryExpression '[' index=valueExpression ']'                          #subscript
     | ident ('.' ident)*                                                             #dereference
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=integerLiteral')')?                           #specialDateTimeFunction
@@ -307,6 +299,16 @@ parameterOrSimpleLiteral
     | parameterExpr
     ;
 
+paramOrInteger
+    : parameterExpr
+    | integerLiteral
+    ;
+
+jobId
+    : parameterExpr
+    | stringLiteral
+    ;
+
 parameterExpr
     : '$' integerLiteral                                                             #positionalParameter
     | '?'                                                                            #parameterPlaceholder
@@ -318,6 +320,10 @@ nullLiteral
 
 stringLiteral
     : STRING
+    ;
+
+subscriptSafe
+    : qname ('[' primaryExpression ']')*
     ;
 
 //matchPredicate
@@ -338,10 +344,6 @@ stringLiteral
 //    : (numericExpr )
 //      ( '||' e=numericExpr -> ^(FUNCTION_CALL ^(QNAME IDENT["concat"]) $predicatePrimary $e) )*
 //    ;
-
-subscriptSafe
-    : qname ('[' primaryExpr ']')*
-    ;
 
 // not used in crate
 
@@ -425,11 +427,6 @@ booleanLiteral
     | FALSE
     ;
 
-jobId
-    : parameterExpr
-    | stringLiteral
-    ;
-
 decimalLiteral
     : DECIMAL_VALUE
     ;
@@ -451,31 +448,32 @@ objectKeyValue
     ;
 
 insertSource
-   : VALUES  valuesList (',' valuesList)*
+   : VALUES  values (',' values)*
    | query
    | '(' query ')'
    ;
 
-valuesList
+values
     : '(' expr (',' expr)* ')'
     ;
 
-columnList
-    : '(' primaryExpr (',' primaryExpr)* ')'
+columns
+    : '(' primaryExpression (',' primaryExpression)* ')'
     ;
 
 assignment
-    : primaryExpr EQ expr
+    : primaryExpression EQ expr
     ;
 
 createStmt
     : CREATE TABLE (IF NOT EXISTS)? table
         '(' tableElement (',' tableElement)* ')'
-         crateTableOption* props=withGenericProps?                                   #createTable
-    | CREATE BLOB TABLE table numShards=clusteredInto? props=withGenericProps?       #createBlobTable
-    | CREATE REPOSITORY name=ident TYPE type=ident props=withGenericProps?           #createRepository
-    | CREATE SNAPSHOT qname allOrTableWithPartitionList props=withGenericProps?      #createSnapshot
-//    | CREATE ANALYZER ident extendsAnalyzer? analyzerElementList                            #createAnalyzer
+         crateTableOption* withProperties?                                           #createTable
+    | CREATE BLOB TABLE table numShards=clusteredInto? withProperties?               #createBlobTable
+    | CREATE REPOSITORY name=ident TYPE type=ident withProperties?                   #createRepository
+    | CREATE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?        #createSnapshot
+//    | CREATE ANALYZER ident (EXTENDS ident)?
+//        WITH? '(' analyzerElement ( ',' analyzerElement )* ')'                     #createAnalyzer
     ;
 
 alterTableDefinition
@@ -484,14 +482,15 @@ alterTableDefinition
     ;
 
 crateTableOption
-    : clusteredBy
-    | partitionedBy
+    : PARTITIONED BY columns                                                         #partitionedBy
+    | CLUSTERED (BY '(' routing=primaryExpression ')')?
+        (INTO numShards=parameterOrSimpleLiteral SHARDS)?                            #clusteredBy
     ;
 
 tableElement
     : columnDefinition                                                               #columndDef
-    | PRIMARY_KEY columnList                                                         #primaryKeyConstraint
-    | INDEX name=ident USING method=ident columnList props=withGenericProps?         #indexDefinition
+    | PRIMARY_KEY columns                                                            #primaryKeyConstraint
+    | INDEX name=ident USING method=ident columns withProperties?                    #indexDefinition
     ;
 
 columnDefinition
@@ -535,7 +534,7 @@ dataType
 
 objectTypeDefinition
     : OBJECT ('(' type=(DYNAMIC | STRICT | IGNORED) ')')?
-             (AS '(' columnDefinition ( ',' columnDefinition )* ')')?
+        (AS '(' columnDefinition ( ',' columnDefinition )* ')')?
     ;
 
 arrayTypeDefinition
@@ -549,11 +548,11 @@ setTypeDefinition
 columnConstraint
     : PRIMARY_KEY                                                                    #columnConstraintPrimaryKey
     | NOT NULL                                                                       #columnConstraintNotNull
-    | INDEX USING method=ident props=withGenericProps?                               #columnIndexConstraint
+    | INDEX USING method=ident withProperties?                                       #columnIndexConstraint
     | INDEX OFF                                                                      #columnIndexOff
     ;
 
-withGenericProps
+withProperties
     : WITH '(' genericProperties ')'                                                 #withGenericProperties
     ;
 
@@ -567,22 +566,6 @@ genericProperty
 
 clusteredInto
     : CLUSTERED INTO numShards=parameterOrSimpleLiteral SHARDS
-    ;
-
-clusteredBy
-    : CLUSTERED (BY '(' routing=primaryExpr ')')? (INTO numShards=parameterOrSimpleLiteral SHARDS)?
-    ;
-
-partitionedBy
-    : PARTITIONED BY columnList
-    ;
-
-extendsAnalyzer
-    : EXTENDS ident
-    ;
-
-analyzerElementList
-    : WITH? '(' analyzerElement ( ',' analyzerElement )* ')'
     ;
 
 analyzerElement
@@ -605,20 +588,15 @@ charFilters
     ;
 
 namedProperties
-    : ident props=withGenericProps?
+    : ident withProperties?
     ;
 
-tableWithPartitionList
+tableWithPartitions
     : tableWithPartition (',' tableWithPartition)*
     ;
 
-allOrTableWithPartitionList
-    : ALL
-    | TABLE tableWithPartitionList
-    ;
-
 setGlobalAssignment
-    : name=primaryExpr (EQ | TO) value=expr
+    : name=primaryExpression (EQ | TO) value=expr
     ;
 
 setExpr
