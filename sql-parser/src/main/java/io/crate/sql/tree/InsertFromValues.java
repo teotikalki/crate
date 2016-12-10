@@ -24,6 +24,7 @@ package io.crate.sql.tree;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 public class InsertFromValues extends Insert {
@@ -33,8 +34,8 @@ public class InsertFromValues extends Insert {
 
     public InsertFromValues(Table table,
                             List<ValuesList> valuesLists,
-                            List<String> columns,
-                            List<Assignment> onDuplicateKeyAssignments) {
+                            @Nullable List<String> columns,
+                            @Nullable List<Assignment> onDuplicateKeyAssignments) {
         super(table, columns, onDuplicateKeyAssignments);
         this.valuesLists = valuesLists;
 

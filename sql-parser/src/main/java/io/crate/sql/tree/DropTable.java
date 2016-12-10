@@ -65,7 +65,11 @@ public class DropTable
             return false;
         }
         DropTable that = (DropTable) obj;
-        return this.dropIfExists == that.dropIfExists && table.equals(that.table);
+        if (this.dropIfExists != that.dropIfExists) {
+            return false;
+        }
+        return table.equals(that.table);
+
     }
 
     @Override

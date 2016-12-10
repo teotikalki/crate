@@ -23,19 +23,20 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
-import java.util.Optional;
+import javax.annotation.Nullable;
 
 public class Delete extends Statement {
 
     private final Relation relation;
     private final Optional<Expression> where;
 
-    public Delete(Relation relation, Optional<Expression> where) {
+    public Delete(Relation relation, @Nullable Expression where) {
         Preconditions.checkNotNull(relation, "relation is null");
         this.relation = relation;
-        this.where = where;
+        this.where = Optional.fromNullable(where);
     }
 
     public Relation getRelation() {
@@ -62,7 +63,7 @@ public class Delete extends Statement {
     public String toString() {
         return MoreObjects.toStringHelper(this)
             .add("relation", relation)
-            .add("where", where)
+            .add("where", where.orNull())
             .toString();
     }
 

@@ -23,23 +23,25 @@ package io.crate.sql.tree;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
+import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Optional;
 
-public class Update extends Statement {
+public class
+Update extends Statement {
 
     private final Relation relation;
     private final List<Assignment> assignments;
     private final Optional<Expression> where;
 
-    public Update(Relation relation, List<Assignment> assignments, Optional<Expression> where) {
+    public Update(Relation relation, List<Assignment> assignments, @Nullable Expression where) {
         Preconditions.checkNotNull(relation, "relation is null");
         Preconditions.checkNotNull(assignments, "assignments are null");
         this.relation = relation;
         this.assignments = assignments;
-        this.where = where;
+        this.where = Optional.fromNullable(where);
     }
 
     public Relation relation() {
@@ -64,7 +66,7 @@ public class Update extends Statement {
         return MoreObjects.toStringHelper(this)
             .add("relation", relation)
             .add("assignments", assignments)
-            .add("where", where)
+            .add("where", where.orNull())
             .toString();
     }
 

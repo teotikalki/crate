@@ -26,7 +26,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class SimpleCaseExpression extends Expression {
+public class SimpleCaseExpression
+    extends Expression {
     private final Expression operand;
     private final List<WhenClause> whenClauses;
     private final Expression defaultValue;

@@ -26,13 +26,13 @@ import com.google.common.base.Objects;
 
 /**
  * A key-value entry mapping a string to a list of <code>Expression</code>s.
- * A <code>GenericProperty</code> always belongs to {@link GenericProperties}.
+ * A <code>GenericProperty</code> always belongs to {@link io.crate.sql.tree.GenericProperties}.
  * <p>
  * It does not need to be visited.
- * Values are merged into {@link GenericProperties}.
+ * Values are merged into {@link io.crate.sql.tree.GenericProperties}.
  * <p>
- * Instance of {@link AnalyzerElement} but frequently used in other
- * {@link GenericProperties} contexts.
+ * Instance of {@link io.crate.sql.tree.AnalyzerElement} but frequently used in other
+ * {@link io.crate.sql.tree.GenericProperties} contexts.
  */
 public class GenericProperty extends AnalyzerElement {
 
@@ -43,6 +43,7 @@ public class GenericProperty extends AnalyzerElement {
         this.key = key;
         this.value = value;
     }
+
 
     public String key() {
         return key;

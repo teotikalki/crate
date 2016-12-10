@@ -45,6 +45,10 @@ public class ColumnDefinition extends TableElement {
         this.constraints = MoreObjects.firstNonNull(constraints, ImmutableList.<ColumnConstraint>of());
     }
 
+    public ColumnDefinition(String ident, ColumnType type, List<ColumnConstraint> constraints) {
+        this(ident, null, type, constraints);
+    }
+
     public String ident() {
         return ident;
     }
