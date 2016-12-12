@@ -46,7 +46,7 @@ addons:
         - deadsnakes
     packages:
         - python3.4
-        - python-dev
+        - python3-dev
         - oracle-java8-installer # use newer java8 then default travis oraclejdk8
   coverity_scan:
     project:
