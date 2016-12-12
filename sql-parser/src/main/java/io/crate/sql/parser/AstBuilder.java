@@ -107,9 +107,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitCreateAnalyzer(SqlBaseParser.CreateAnalyzerContext context) {
+        String extendedAnalyzer = null;
+        if (context.extendedname != null)
+            extendedAnalyzer = context.extendedname.getText();
         return new CreateAnalyzer(
             context.name.getText(),
-            null,
+            extendedAnalyzer,
             visit(context.analyzerElement(), AnalyzerElement.class)
         );
     }
