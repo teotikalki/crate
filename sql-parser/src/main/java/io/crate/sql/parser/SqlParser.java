@@ -44,7 +44,7 @@ public class SqlParser {
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
 
     public SqlParser() {
-        this(new SqlParserOptions().allowIdentifierSymbol(IdentifierSymbol.AT_SIGN, IdentifierSymbol.COLON));
+        this(new SqlParserOptions().allowIdentifierSymbol(IdentifierSymbol.AT_SIGN));
     }
 
     @Inject
