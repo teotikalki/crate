@@ -204,6 +204,8 @@ predicate[ParserRuleContext value]
     | NOT? IN '(' expr (',' expr)* ')'                                               #inList
     | NOT? IN '(' query ')'                                                          #inSubquery
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?             #like
+    | NOT? LIKE quant=setCmpQuantifier '(' v=valueExpression')'
+        (ESCAPE escape=valueExpression)?                                             #arrayLike
     | IS NOT? NULL                                                                   #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                                    #distinctFrom
     ;

@@ -37,6 +37,7 @@ import static com.google.common.base.Strings.repeat;
 import static io.crate.sql.parser.TreeAssertions.assertFormattedSql;
 import static java.lang.String.format;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.junit.Assert.*;
@@ -370,34 +371,34 @@ public class TestStatementBuilder {
         printStatement("select extract(day from x), extract(dow from x) from y");
         printStatement("select extract('day' from x), extract(? from x) from y");
 
-//        printStatement("select 1 + 13 || '15' from foo");
+        printStatement("select 1 + 13 || '15' from foo");
         printStatement("select \"test\" from foo");
-//        printStatement("select col['x'] + col['y'] from foo");
-//        printStatement("select col['x'] - col['y'] from foo");
-//        printStatement("select col['y'] / col[2 / 1] from foo");
+        printStatement("select col['x'] + col['y'] from foo");
+        printStatement("select col['x'] - col['y'] from foo");
+        printStatement("select col['y'] / col[2 / 1] from foo");
         printStatement("select col[1] from foo");
 
         printStatement("select - + 10");
-//        printStatement("select - ( - - 10)");
-//        printStatement("select - ( + - 10) * - ( - 10 - + 10)");
+        printStatement("select - ( - - 10)");
+        printStatement("select - ( + - 10) * - ( - 10 - + 10)");
         printStatement("select - - col['x']");
-//
+
 //         expressions as subscript index are only supported by the parser
-//        printStatement("select col[1 + 2] - col['y'] from foo");
+        printStatement("select col[1 + 2] - col['y'] from foo");
 
-//        printStatement("select x is distinct from y from foo where a is not distinct from b");
+        printStatement("select x is distinct from y from foo where a is not distinct from b");
 
-//        printStatement("" +
-//                       "select depname, empno, salary\n" +
-//                       ", count(*) over ()\n" +
-//                       ", avg(salary) over (partition by depname)\n" +
-//                       ", rank() over (partition by depname order by salary desc)\n" +
-//                       ", sum(salary) over (order by salary rows unbounded preceding)\n" +
-//                       ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
-//                       ", sum(salary) over (partition by depname range unbounded preceding)\n" +
-//                       ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
-//                       "from emp");
-//
+        printStatement("" +
+                       "select depname, empno, salary\n" +
+                       ", count(*) over ()\n" +
+                       ", avg(salary) over (partition by depname)\n" +
+                       ", rank() over (partition by depname order by salary desc)\n" +
+                       ", sum(salary) over (order by salary rows unbounded preceding)\n" +
+                       ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
+                       ", sum(salary) over (partition by depname range unbounded preceding)\n" +
+                       ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
+                       "from emp");
+
         printStatement("" +
                        "with a (id) as (with x as (select 123 from z) select * from x) " +
                        "   , b (id) as (select 999 from z) " +
@@ -414,12 +415,12 @@ public class TestStatementBuilder {
         printStatement("select * from foo limit 100 offset 20");
         printStatement("select * from foo offset 20");
 
-//        printStatement("select * from t where 'value' LIKE ANY (col)");
-//        printStatement("select * from t where 'value' NOT LIKE ANY (col)");
-//        printStatement("select * from t where 'source' ~ 'pattern'");
-//        printStatement("select * from t where 'source' !~ 'pattern'");
-//        printStatement("select * from t where source_column ~ pattern_column");
-//        printStatement("select * from t where ? !~ ?");
+        printStatement("select * from t where 'value' LIKE ANY (col)");
+        printStatement("select * from t where 'value' NOT LIKE ANY (col)");
+        printStatement("select * from t where 'source' ~ 'pattern'");
+        printStatement("select * from t where 'source' !~ 'pattern'");
+        printStatement("select * from t where source_column ~ pattern_column");
+        printStatement("select * from t where ? !~ ?");
     }
 
     @Test
@@ -724,6 +725,25 @@ public class TestStatementBuilder {
         assertThat(allArrayComparison.quantifier(), is(ArrayComparisonExpression.Quantifier.ALL));
         assertThat(allArrayComparison.getLeft(), instanceOf(StringLiteral.class));
         assertThat(allArrayComparison.getRight(), instanceOf(QualifiedNameReference.class));
+    }
+
+    @Test
+    public void testArrayLikeExpression() {
+        Expression expression = SqlParser.createExpression("'books%' LIKE ANY(race['interests'])");
+        assertThat(expression, instanceOf(ArrayLikePredicate.class));
+        ArrayLikePredicate arrayLikePredicate = (ArrayLikePredicate) expression;
+        assertThat(arrayLikePredicate.inverse(), is(false));
+        assertThat(arrayLikePredicate.getEscape(), is(nullValue()));
+        assertThat(arrayLikePredicate.getPattern().toString(), is("'books%'"));
+        assertThat(arrayLikePredicate.getValue().toString(), is("\"race\"['interests']"));
+
+        expression = SqlParser.createExpression("'b%' NOT LIKE ANY(race)");
+        assertThat(expression, instanceOf(ArrayLikePredicate.class));
+        arrayLikePredicate = (ArrayLikePredicate) expression;
+        assertThat(arrayLikePredicate.inverse(), is(true));
+        assertThat(arrayLikePredicate.getEscape(), is(nullValue()));
+        assertThat(arrayLikePredicate.getPattern().toString(), is("'b%'"));
+        assertThat(arrayLikePredicate.getValue().toString(), is("\"race\""));
     }
 
     @Test

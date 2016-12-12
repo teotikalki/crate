@@ -692,6 +692,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new FrameBound(getBoundedFrameBoundType(context.boundType), (Expression) visit(context.expr()));
     }
 
+    @Override
+    public Node visitCurrentRowBound(SqlBaseParser.CurrentRowBoundContext context) {
+        return new FrameBound(FrameBound.Type.CURRENT_ROW);
+    }
+
     // Boolean expressions
 
     @Override
@@ -845,6 +850,17 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             result = new NotExpression(result);
         }
         return result;
+    }
+
+    @Override
+    public Node visitArrayLike(SqlBaseParser.ArrayLikeContext context) {
+        boolean inverse = context.NOT() != null;
+        return new ArrayLikePredicate(
+            getComparisonQuantifier(((TerminalNode) context.setCmpQuantifier().getChild(0)).getSymbol()),
+            (Expression) visit(context.value),
+            (Expression) visit(context.v),
+            visitIfPresent(context.escape, Expression.class).orElse(null),
+            inverse);
     }
 
     @Override
