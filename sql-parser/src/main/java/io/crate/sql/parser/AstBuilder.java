@@ -134,7 +134,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitNamedProperties(SqlBaseParser.NamedPropertiesContext context) {
-        return new NamedProperties(context.ident().getText(),
+        return new NamedProperties(getIdentValue(context.ident()),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
@@ -166,7 +166,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitDropRepository(SqlBaseParser.DropRepositoryContext context) {
-        return new DropRepository(context.ident().getText());
+        return new DropRepository(getIdentValue(context.ident()));
     }
 
     @Override
@@ -352,7 +352,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context) {
         return new ColumnDefinition(
-            context.ident().getText(),
+            getIdentValue(context.ident()),
             visitIfPresent(context.generatedColumnDefinition(), Expression.class).orElse(null),
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
@@ -433,7 +433,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitGenericProperty(SqlBaseParser.GenericPropertyContext context) {
-        return new GenericProperty(context.ident().getText(), (Expression) visit(context.expr()));
+        return new GenericProperty(getIdentValue(context.ident()), (Expression) visit(context.expr()));
     }
 
     // Amending tables
@@ -762,7 +762,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             return child;
         }
 
-        return new AliasedRelation(child, context.ident().getText(), getColumnAliases(context.aliasedColumns()));
+        return new AliasedRelation(child, getIdentValue(context.ident()), getColumnAliases(context.aliasedColumns()));
     }
 
     @Override
