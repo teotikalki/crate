@@ -199,7 +199,7 @@ predicated
 
 predicate[ParserRuleContext value]
     : cmpOp right=valueExpression                                                    #comparison
-    | cmpOp setCmpQuantifier '(' query ')'                                           #quantifiedComparison
+    | cmpOp setCmpQuantifier '(' primaryExpression ')'                               #quantifiedComparison
     | NOT? BETWEEN lower=valueExpression AND upper=valueExpression                   #between
     | NOT? IN '(' expr (',' expr)* ')'                                               #inList
     | NOT? IN '(' query ')'                                                          #inSubquery

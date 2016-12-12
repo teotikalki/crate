@@ -666,11 +666,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new TableSubquery((Query) visit(context.queryNoWith()));
     }
 
-//    @Override
-//    public Node visitInlineTable(SqlBaseParser.InlineTableContext context) {
-//        return new Values(getLocation(context), visit(context.expression(), Expression.class));
-//    }
-
     @Override
     public Node visitOver(SqlBaseParser.OverContext context) {
         return new Window(
@@ -769,12 +764,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
         return new AliasedRelation(child, context.ident().getText(), getColumnAliases(context.aliasedColumns()));
     }
-
-//    @Override
-//    public Node visitTableName(SqlBaseParser.TableNameContext context) {
-//        if (context.table().)
-//        return new Table(getQualifiedName(context.()));
-//    }
 
     @Override
     public Node visitSubqueryRelation(SqlBaseParser.SubqueryRelationContext context) {
@@ -887,14 +876,14 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new ExistsPredicate((Query) visit(context.query()));
     }
 
-//    @Override
-//    public Node visitQuantifiedComparison(SqlBaseParser.QuantifiedComparisonContext context) {
-//        return new QuantifiedComparisonExpression(
-//            getComparisonOperator(((TerminalNode) context.cmpOp().getChild(0)).getSymbol()),
-//            getComparisonQuantifier(((TerminalNode) context.setCmpQuantifier().getChild(0)).getSymbol()),
-//            (Expression) visit(context.value),
-//            new SubqueryExpression((Query) visit(context.query())));
-//    }
+    @Override
+    public Node visitQuantifiedComparison(SqlBaseParser.QuantifiedComparisonContext context) {
+        return new ArrayComparisonExpression(
+            getComparisonOperator(((TerminalNode) context.cmpOp().getChild(0)).getSymbol()),
+            getComparisonQuantifier(((TerminalNode) context.setCmpQuantifier().getChild(0)).getSymbol()),
+            (Expression) visit(context.value),
+            (Expression) visit(context.primaryExpression()));
+    }
 
     @Override
     public Node visitMatch(SqlBaseParser.MatchContext context) {
