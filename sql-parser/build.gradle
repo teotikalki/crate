@@ -1,7 +1,6 @@
 apply from: "$rootDir/gradle/javaModule.gradle"
-apply plugin: 'antlr'
 
-archivesBaseName = 'crate-sql-parser'
+archivesBaseName = 'crate=sql-parser'
 
 ext.antlr = [
         source : "src/main/antlr",
@@ -9,8 +8,12 @@ ext.antlr = [
         package: 'io.crate.sql.parser.antlr.v4'
 ]
 
+configurations {
+    antlr4
+}
+
 dependencies {
-    antlr "org.antlr:antlr4:${versions.antlr}"
+    antlr4 "org.antlr:antlr4:${versions.antlr}"
     compile "org.antlr:antlr4-runtime:${versions.antlr}"
 
     compile "com.google.code.findbugs:jsr305:${versions.jsr305}"
@@ -22,12 +25,21 @@ dependencies {
     testCompile "junit:junit:${versions.junit}"
 }
 
-generateGrammarSource {
-    outputDirectory = file(antlr.output)
-    source = antlr.source
-    arguments += ['-package', antlr.package, '-visitor', '-long-messages']
+task antlrOutputDir << {
+    mkdir(antlr.output)
 }
 
+task generateGrammarSource(dependsOn: antlrOutputDir, type: JavaExec) {
+    inputs.dir file(antlr.source)
+    outputs.dir file(antlr.output)
+
+    def grammars = fileTree(antlr.source).include('**/*.g4')
+
+    main = 'org.antlr.v4.Tool'
+    classpath = configurations.antlr4
+    args = ["-o", "${antlr.output}", "-visitor", "-package", antlr.package, grammars.files].flatten()
+
+}
 
 test {
     // show standard out and standard error of the test JVM(s) on the console
@@ -41,6 +53,11 @@ test {
                 "TreePrinter*"
         ]
     }
+}
+
+compileJava {
+    dependsOn generateGrammarSource
+    source antlr.output
 }
 
 clean {
