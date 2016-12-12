@@ -453,8 +453,8 @@ generatedColumnDefinition
     ;
 
 addColumnDefinition
-    : qname generatedColumnDefinition
-    | qname dataType columnConstraint*
+    : subscriptSafe generatedColumnDefinition
+    | subscriptSafe dataType columnConstraint*
     ;
 
 dataType
