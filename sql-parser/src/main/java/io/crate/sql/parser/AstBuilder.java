@@ -307,7 +307,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitShowTables(SqlBaseParser.ShowTablesContext context) {
         return new ShowTables(
-            Optional.ofNullable(context.qname()).map(AstBuilder::getQualifiedName).orElse(null),
+            Optional.ofNullable(context.qname()).map(this::getQualifiedName).orElse(null),
             getTextIfPresent(context.pattern).map(AstBuilder::unquote).orElse(null),
             visitIfPresent(context.where(), Expression.class).orElse(null)
         );
@@ -323,7 +323,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context) {
-        QualifiedName schema = Optional.ofNullable(context.schema).map(AstBuilder::getQualifiedName).orElse(null);
+        QualifiedName schema = Optional.ofNullable(context.schema).map(this::getQualifiedName).orElse(null);
         return new ShowColumns(
             getQualifiedName(context.tableName),
             schema,
@@ -630,9 +630,26 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new SingleColumn((Expression) visit(context.expr()), alias);
     }
 
+    /*
+    * case sensitivity like it is in postgres
+    * see also http://www.thenextage.com/wordpress/postgresql-case-sensitivity-part-1-the-ddl/
+    *
+    * unfortunately this has to be done in the parser because afterwards the
+    * knowledge of the IDENT / QUOTED_IDENT difference is lost
+    */
     @Override
     public Node visitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context) {
-        return new StringLiteral(context.IDENTIFIER().getText());
+        return new StringLiteral(context.IDENTIFIER().getText().toLowerCase(Locale.ENGLISH));
+    }
+
+    @Override
+    public Node visitQuotedIdentifierAlternative(SqlBaseParser.QuotedIdentifierAlternativeContext context) {
+        return new StringLiteral(context.getText());
+    }
+
+    private String getIdentValue(SqlBaseParser.IdentContext ident) {
+        StringLiteral literal = (StringLiteral) visit(ident);
+        return literal.getValue();
     }
 
     @Override
@@ -992,7 +1009,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context) {
-        return new QualifiedNameReference(QualifiedName.of(context.getText()));
+        return new QualifiedNameReference(QualifiedName.of(getIdentValue(context.ident())));
     }
 
     @Override
@@ -1178,10 +1195,10 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             .replace("''", "'");
     }
 
-    private static QualifiedName getQualifiedName(SqlBaseParser.QnameContext context) {
+    private QualifiedName getQualifiedName(SqlBaseParser.QnameContext context) {
         List<String> parts = context
             .ident().stream()
-            .map(ParseTree::getText)
+            .map(this::getIdentValue)
             .collect(toList());
 
         return QualifiedName.of(parts);
