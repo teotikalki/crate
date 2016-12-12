@@ -21,45 +21,6 @@
 
 grammar SqlBase;
 
-//@header {
-//    package io.crate.sql.parser;
-//}
-//
-//@lexer::header {
-//    package io.crate.sql.parser;
-//}
-
-//@members {
-//    @Override
-//    protected Object recoverFromMismatchedToken(IntStream input, int tokenType, BitSet follow)
-//            throws RecognitionException
-//    {
-//        throw new MismatchedTokenException(tokenType, input);
-//    }
-//
-//    @Override
-//    public Object recoverFromMismatchedSet(IntStream input, RecognitionException e, BitSet follow)
-//            throws RecognitionException
-//    {
-//        throw e;
-//    }
-//
-//    @Override
-//    public String getErrorMessage(RecognitionException e, String[] tokenNames)
-//    {
-//        if (e.token.getType() == COLON_IDENT) {
-//            return "identifiers must not contain a colon; use '@' instead of ':' for table links";
-//        }
-//        return super.getErrorMessage(e, tokenNames);
-//    }
-//
-//        @Override
-//        public void reportError(RecognitionException e)
-//        {
-//            throw new ParsingException(getErrorMessage(e, getTokenNames()), e);
-//        }
-//}
-
 @rulecatch {
     catch (RecognitionException re) {
         throw new ParsingException(getErrorMessage(re, getTokenNames()), re);
@@ -228,6 +189,8 @@ booleanExpression
     | NOT booleanExpression                                                          #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression                    #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression                     #logicalBinary
+    | MATCH '(' matchPredicateIdents ',' term=primaryExpression ')'
+        (USING matchType=ident withProperties?)?                                     #match
     ;
 
 predicated
@@ -323,27 +286,9 @@ stringLiteral
     ;
 
 subscriptSafe
-    : qname ('[' primaryExpression ']')*
+    : value=subscriptSafe '[' index=valueExpression']'
+    | qname
     ;
-
-//matchPredicate
-//    : MATCH '(' matchPredicateIdentList ',' s=exprPrimary ')' (USING matchMethod=ident ((WITH '(') => WITH '(' genericProperties ')' )?)? -> ^(MATCH matchPredicateIdentList $s $matchMethod? genericProperties?)
-//    ;
-
-//matchPredicateIdentList
-//    : ('(' matchPredicateIdent) => '(' matchPredicateIdent (',' matchPredicateIdent)* ')' -> ^(MATCH_PREDICATE_IDENT_LIST matchPredicateIdent+)
-//    | matchPredicateIdent  -> ^(MATCH_PREDICATE_IDENT_LIST matchPredicateIdent+)
-//    ;
-//
-//matchPredicateIdent
-//    : subscriptSafe parameterOrSimpleLiteral? -> ^(MATCH_PREDICATE_IDENT subscriptSafe parameterOrSimpleLiteral?)
-//    ;
-
-// TDODO primaryExpression!!!!!
-//predicatePrimary
-//    : (numericExpr )
-//      ( '||' e=numericExpr -> ^(FUNCTION_CALL ^(QNAME IDENT["concat"]) $predicatePrimary $e) )*
-//    ;
 
 // not used in crate
 
@@ -487,6 +432,10 @@ crateTableOption
         (INTO numShards=parameterOrSimpleLiteral SHARDS)?                            #clusteredBy
     ;
 
+clusteredInto
+    : CLUSTERED INTO numShards=parameterOrSimpleLiteral SHARDS
+    ;
+
 tableElement
     : columnDefinition                                                               #columndDef
     | PRIMARY_KEY columns                                                            #primaryKeyConstraint
@@ -559,8 +508,13 @@ genericProperty
     : ident EQ expr
     ;
 
-clusteredInto
-    : CLUSTERED INTO numShards=parameterOrSimpleLiteral SHARDS
+matchPredicateIdents
+    : matchPred=matchPredicateIdent
+    | '(' matchPredicateIdent (',' matchPredicateIdent)* ')'
+    ;
+
+matchPredicateIdent
+    : subscriptSafe boost=parameterOrSimpleLiteral? // TODO use safesubcript instead of ident
     ;
 
 analyzerElement

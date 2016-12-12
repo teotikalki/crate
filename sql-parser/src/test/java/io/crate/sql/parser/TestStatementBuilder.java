@@ -529,7 +529,7 @@ public class TestStatementBuilder {
     @Test
     public void testInsertStmtBuilder() throws Exception {
         // insert from values
-//        printStatement("insert into foo (id, name) values ('string', 1.2)");
+        printStatement("insert into foo (id, name) values ('string', 1.2)");
         printStatement("insert into foo values ('string', NULL)");
         printStatement("insert into foo (id, name) values ('string', 1.2), (abs(-4), 4+?)");
         printStatement("insert into schemah.foo (id, name) values ('string', 1.2)");
@@ -558,7 +558,8 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testPredicates() throws Exception {
+    public void testMatchPredicateStmtBuilder() throws Exception {
+        printStatement("select * from foo where match (a['1']['2'], 'abc')");
         printStatement("select * from foo where match (a, 'abc')");
         printStatement("select * from foo where match ((a, b 2.0), 'abc')");
         printStatement("select * from foo where match ((a ?, b 2.0), ?)");
@@ -655,7 +656,7 @@ public class TestStatementBuilder {
     }
 
     @Test
-    public void testSubscript() throws Exception {
+    public void testSubscriptExpression() throws Exception {
         Expression expression = SqlParser.createExpression("a['sub']");
         assertThat(expression, instanceOf(SubscriptExpression.class));
         SubscriptExpression subscript = (SubscriptExpression) expression;
@@ -670,6 +671,18 @@ public class TestStatementBuilder {
         assertThat(subscript.index(), instanceOf(LongLiteral.class));
         assertThat(((LongLiteral) subscript.index()).getValue(), is(1L));
         assertThat(subscript.name(), instanceOf(ArrayLiteral.class));
+    }
+
+    @Test
+    public void testSafeSubscriptExpression() {
+        MatchPredicate matchPredicate = (MatchPredicate) SqlParser.createExpression("match (a['1']['2'], 'abc')");
+        assertThat(matchPredicate.idents().get(0).columnIdent().toString(), is("\"a\"['1']['2']"));
+
+        matchPredicate = (MatchPredicate) SqlParser.createExpression("match (a['1']['2']['4'], 'abc')");
+        assertThat(matchPredicate.idents().get(0).columnIdent().toString(), is("\"a\"['1']['2']['4']"));
+
+        expectedException.expect(ParsingException.class);
+        SqlParser.createExpression("match ([1]['1']['2'], 'abc')");
     }
 
     @Test

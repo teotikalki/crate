@@ -879,6 +879,30 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 //            new SubqueryExpression((Query) visit(context.query())));
 //    }
 
+    @Override
+    public Node visitMatch(SqlBaseParser.MatchContext context) {
+        SqlBaseParser.MatchPredicateIdentsContext predicateIdents = context.matchPredicateIdents();
+        List<MatchPredicateColumnIdent> idents;
+
+        if (predicateIdents.matchPred != null) {
+            idents = ImmutableList.of((MatchPredicateColumnIdent) visit(predicateIdents.matchPred));
+        } else {
+            idents = visit(predicateIdents.matchPredicateIdent(), MatchPredicateColumnIdent.class);
+        }
+        return new MatchPredicate(
+            idents,
+            (Expression) visit(context.term),
+            getTextIfPresent(context.matchType).orElse(null),
+            visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
+    }
+
+    @Override
+    public Node visitMatchPredicateIdent(SqlBaseParser.MatchPredicateIdentContext context) {
+        return new MatchPredicateColumnIdent(
+            (Expression) visit(context.subscriptSafe()),
+            visitIfPresent(context.boost, Expression.class).orElse(null));
+    }
+
     // Value expressions
 
     @Override
@@ -948,19 +972,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
-    public Node visitSubscript(SqlBaseParser.SubscriptContext context) {
-        return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
-    }
-
-    @Override
     public Node visitNestedExpression(SqlBaseParser.NestedExpressionContext context) {
         return visit(context.expr());
     }
-
-    //    @Override
-//    public Node visitSubscriptSafe(SqlBaseParser.SubscriptSafeContext context) {
-//        return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
-//    }
 
     @Override
     public Node visitSubqueryExpression(SqlBaseParser.SubqueryExpressionContext context) {
@@ -979,6 +993,24 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context) {
         return new QualifiedNameReference(QualifiedName.of(context.getText()));
+    }
+
+    @Override
+    public Node visitSubscript(SqlBaseParser.SubscriptContext context) {
+        return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
+    }
+
+    @Override
+    public Node visitSubscriptSafe(SqlBaseParser.SubscriptSafeContext context) {
+        if (context.qname() != null) {
+            return new QualifiedNameReference(getQualifiedName(context.qname()));
+        }
+        return new SubscriptExpression((Expression) visit(context.value), (Expression) visit(context.index));
+    }
+
+    @Override
+    public Node visitQname(SqlBaseParser.QnameContext context) {
+        return new QualifiedNameReference(getQualifiedName(context));
     }
 
     @Override
