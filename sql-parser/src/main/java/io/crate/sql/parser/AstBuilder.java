@@ -459,7 +459,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitAddColumnDefinition(SqlBaseParser.AddColumnDefinitionContext context) {
         return new AddColumnDefinition(
-            (Expression) visit(context.qname()),
+            (Expression) visit(context.subscriptSafe()),
             visitIfPresent(context.generatedColumnDefinition(), Expression.class).orElse(null),
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
