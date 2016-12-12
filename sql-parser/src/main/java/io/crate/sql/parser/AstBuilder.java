@@ -359,6 +359,11 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitGeneratedColumnDefinition(SqlBaseParser.GeneratedColumnDefinitionContext context) {
+        return visit(context.expr());
+    }
+
+    @Override
     public Node visitColumnConstraintPrimaryKey(SqlBaseParser.ColumnConstraintPrimaryKeyContext context) {
         return new PrimaryKeyColumnConstraint();
     }
@@ -454,8 +459,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitAddColumnDefinition(SqlBaseParser.AddColumnDefinitionContext context) {
         return new AddColumnDefinition(
-            (Expression) visit(context.subscriptSafe()),
-            visitIfPresent(context.addGeneratedColumnDefinition(), Expression.class).orElse(null),
+            (Expression) visit(context.qname()),
+            visitIfPresent(context.generatedColumnDefinition(), Expression.class).orElse(null),
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
     }

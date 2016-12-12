@@ -494,23 +494,18 @@ tableElement
     ;
 
 columnDefinition
-    : generatedColumnDefinition
+    : ident generatedColumnDefinition
     | ident dataType columnConstraint*
     ;
 
 generatedColumnDefinition
-    : ident GENERATED ALWAYS AS expr columnConstraint*
-    | ident (dataType GENERATED ALWAYS)? AS expr columnConstraint*
+    : GENERATED ALWAYS AS expr columnConstraint*
+    | (dataType GENERATED ALWAYS)? AS expr columnConstraint*
     ;
 
 addColumnDefinition
-    : addGeneratedColumnDefinition
-    | subscriptSafe dataType columnConstraint*
-    ;
-
-addGeneratedColumnDefinition
-    : subscriptSafe (dataType GENERATED ALWAYS)? AS expr columnConstraint*
-//    : (subscriptSafe GENERATED ALWAYS AS) => subscriptSafe GENERATED ALWAYS AS expression columnConstDef*
+    : qname generatedColumnDefinition
+    | qname dataType columnConstraint*
     ;
 
 dataType
