@@ -22,7 +22,6 @@ import io.crate.sql.parser.antlr.v4.SqlBaseLexer;
 import io.crate.sql.parser.antlr.v4.SqlBaseParser;
 import io.crate.sql.tree.*;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -90,7 +89,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitCreateRepository(SqlBaseParser.CreateRepositoryContext context) {
-        return new CreateRepository(context.name.getText(), context.type.getText(),
+        return new CreateRepository(
+            getIdentValue(context.name),
+            getIdentValue(context.type),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
@@ -109,9 +110,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitCreateAnalyzer(SqlBaseParser.CreateAnalyzerContext context) {
         String extendedAnalyzer = null;
         if (context.extendedname != null)
-            extendedAnalyzer = context.extendedname.getText();
+            extendedAnalyzer = getIdentValue(context.extendedname);
         return new CreateAnalyzer(
-            context.name.getText(),
+            getIdentValue(context.name),
             extendedAnalyzer,
             visit(context.analyzerElement(), AnalyzerElement.class)
         );
@@ -211,7 +212,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitInsert(SqlBaseParser.InsertContext context) {
         List<String> columns = context.ident()
             .stream()
-            .map(RuleContext::getText)
+            .map(this::getIdentValue)
             .collect(toList());
 
         List<Assignment> onDuplicateKeyAssignments = Optional.ofNullable(
@@ -386,15 +387,15 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitColumnIndexConstraint(SqlBaseParser.ColumnIndexConstraintContext context) {
         return new IndexColumnConstraint(
-            context.method.getText(),
+            getIdentValue(context.method),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitIndexDefinition(SqlBaseParser.IndexDefinitionContext context) {
         return new IndexDefinition(
-            context.name.getText(),
-            context.method.getText(),
+            getIdentValue(context.name),
+            getIdentValue(context.method),
             visit(context.columns().primaryExpression(), Expression.class),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
@@ -444,7 +445,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.SET() != null) {
             return new AlterTable(name, (GenericProperties) visit(context.genericProperties()));
         }
-        return new AlterTable(name, context.ident().stream().map(RuleContext::getText).collect(toList()));
+        return new AlterTable(name, context.ident().stream().map(this::getIdentValue).collect(toList()));
     }
 
     @Override
@@ -453,7 +454,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.SET() != null) {
             return new AlterBlobTable(name, (GenericProperties) visit(context.genericProperties()));
         }
-        return new AlterBlobTable(name, context.ident().stream().map(RuleContext::getText).collect(toList()));
+        return new AlterBlobTable(name, context.ident().stream().map(this::getIdentValue).collect(toList()));
     }
 
     @Override
@@ -494,8 +495,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             body.getQueryBody(),
             body.getOrderBy(),
             body.getLimit(),
-            body.getOffset()
-        );
+            body.getOffset());
     }
 
     @Override
@@ -506,9 +506,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitNamedQuery(SqlBaseParser.NamedQueryContext context) {
         return new WithQuery(
-            context.name.getText(), (Query) visit(context.query()),
-            Optional.ofNullable(getColumnAliases(context.aliasedColumns())).orElse(ImmutableList.of())
-        );
+            getIdentValue(context.name),
+            (Query) visit(context.query()),
+            Optional.ofNullable(getColumnAliases(context.aliasedColumns())).orElse(ImmutableList.of()));
     }
 
     @Override
@@ -736,7 +736,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             } else if (context.joinCriteria().USING() != null) {
                 List<String> columns = context.joinCriteria()
                     .ident().stream()
-                    .map(ParseTree::getText)
+                    .map(this::getIdentValue)
                     .collect(toList());
 
                 criteria = new JoinUsing(columns);
@@ -1007,7 +1007,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitDereference(SqlBaseParser.DereferenceContext context) {
         List<String> parts = context
             .ident().stream()
-            .map(ParseTree::getText)
+            .map(this::getIdentValue)
             .collect(toList());
         return new QualifiedNameReference(QualifiedName.of(parts));
     }
@@ -1115,7 +1115,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitObjectLiteral(SqlBaseParser.ObjectLiteralContext context) {
         Multimap<String, Expression> objAttributes = LinkedListMultimap.create();
         context.objectKeyValue().forEach(attr ->
-            objAttributes.put(attr.key.getText(), (Expression) visit(attr.value))
+            objAttributes.put(getIdentValue(attr.key), (Expression) visit(attr.value))
         );
         return new ObjectLiteral(objAttributes);
     }
@@ -1132,9 +1132,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
                 getObjectType(context.objectTypeDefinition().type),
                 visit(context.objectTypeDefinition().columnDefinition(), ColumnDefinition.class));
         } else if (context.arrayTypeDefinition() != null) {
-            CollectionColumnType.array((ColumnType) visit(context.setTypeDefinition().dataType()));
+            return CollectionColumnType.array((ColumnType) visit(context.arrayTypeDefinition().dataType()));
         } else if (context.setTypeDefinition() != null) {
-            CollectionColumnType.set((ColumnType) visit(context.setTypeDefinition().dataType()));
+            return CollectionColumnType.set((ColumnType) visit(context.setTypeDefinition().dataType()));
         }
         return new ColumnType(context.getText().toLowerCase(Locale.ENGLISH));
     }
@@ -1221,13 +1221,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return Optional.ofNullable(token).map(Token::getText);
     }
 
-    private static List<String> getColumnAliases(SqlBaseParser.AliasedColumnsContext columnAliasesContext) {
+    private List<String> getColumnAliases(SqlBaseParser.AliasedColumnsContext columnAliasesContext) {
         if (columnAliasesContext == null) {
             return null;
         }
         return columnAliasesContext
             .ident().stream()
-            .map(ParseTree::getText)
+            .map(this::getIdentValue)
             .collect(toList());
     }
 
