@@ -24,7 +24,6 @@ import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
-import javax.inject.Inject;
 import java.util.EnumSet;
 import java.util.function.Function;
 
@@ -47,7 +46,6 @@ public class SqlParser {
         this(new SqlParserOptions().allowIdentifierSymbol(IdentifierSymbol.AT_SIGN));
     }
 
-    @Inject
     public SqlParser(SqlParserOptions options) {
         requireNonNull(options, "options is null");
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());

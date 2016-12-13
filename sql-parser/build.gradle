@@ -19,7 +19,6 @@ dependencies {
     compile "com.google.code.findbugs:jsr305:${versions.jsr305}"
     compile "joda-time:joda-time:${versions.jodatime}"
     compile "com.google.guava:guava:${versions.guava}"
-    compile group: 'com.google.inject', name: 'guice', version: '3.0' /// remove later
 
     testCompile "org.hamcrest:hamcrest-all:${versions.hamcrest}"
     testCompile "junit:junit:${versions.junit}"
