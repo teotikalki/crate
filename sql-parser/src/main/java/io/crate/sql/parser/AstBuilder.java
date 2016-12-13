@@ -642,16 +642,10 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitTable(SqlBaseParser.TableContext context) {
-        QualifiedName name = getQualifiedName(context.qname());
-        if (context.parameterOrLiteral() != null) {
-            return new Table(name, visit(context.parameterOrLiteral(), Assignment.class));
+        if (context.qname() != null) {
+            return new Table(getQualifiedName(context.qname()), visit(context.parameterOrLiteral(), Assignment.class));
         }
-        return new Table(name);
-    }
-
-    @Override
-    public Node visitSubquery(SqlBaseParser.SubqueryContext context) {
-        return new TableSubquery((Query) visit(context.queryNoWith()));
+        return new TableFunction(getIdentValue(context.ident()), visit(context.parameterOrLiteral(), Expression.class));
     }
 
     @Override

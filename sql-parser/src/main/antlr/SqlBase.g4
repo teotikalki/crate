@@ -103,7 +103,6 @@ queryPrimary
     : querySpecification                                                             #queryPrimaryDefault
     | TABLE qname                                                                    #explicitTable
     | VALUES expr (',' expr)*                                                        #inlineTable
-    | '(' queryNoWith  ')'                                                           #subquery
     ;
 
 sortItem
