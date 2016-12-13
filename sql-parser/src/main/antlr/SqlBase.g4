@@ -238,9 +238,9 @@ primaryExpression
     | EXTRACT '(' identExpr FROM expr ')'                                            #extract
     | CAST '(' expr AS dataType ')'                                                  #cast
     | TRY_CAST '(' expr AS dataType ')'                                              #cast
-    | CASE valueExpression whenClause+ (ELSE elseExpression=expr)? END               #simpleCase
-    | CASE whenClause+ (ELSE elseExpression=expr)? END                               #searchedCase
-    | IF '(' expr ',' expr (',' expr)? ')'                                           #ifCase
+    | CASE valueExpression whenClause+ (ELSE elseExpr=expr)? END                     #simpleCase
+    | CASE whenClause+ (ELSE elseExpr=expr)? END                                     #searchedCase
+    | IF '('condition=expr ',' trueValue=expr (',' falseValue=expr)? ')'             #ifCase
     ;
 
 identExpr
@@ -430,7 +430,7 @@ alterTableDefinition
 crateTableOption
     : PARTITIONED BY columns                                                         #partitionedBy
     | CLUSTERED (BY '(' routing=primaryExpression ')')?
-        (INTO numShards=parameterOrSimpleLiteral SHARDS)?                            #clusteredBy
+        (INTO numShards=paramOrInteger SHARDS)?                                      #clusteredBy
     ;
 
 clusteredInto
@@ -438,7 +438,7 @@ clusteredInto
     ;
 
 tableElement
-    : columnDefinition                                                               #columndDef
+    : columnDefinition                                                               #columndDefinitionDefault
     | PRIMARY_KEY columns                                                            #primaryKeyConstraint
     | INDEX name=ident USING method=ident columns withProperties?                    #indexDefinition
     ;
@@ -515,7 +515,7 @@ matchPredicateIdents
     ;
 
 matchPredicateIdent
-    : subscriptSafe boost=parameterOrSimpleLiteral? // TODO use safesubcript instead of ident
+    : subscriptSafe boost=parameterOrSimpleLiteral?
     ;
 
 analyzerElement

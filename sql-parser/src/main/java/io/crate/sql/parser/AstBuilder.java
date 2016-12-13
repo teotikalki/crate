@@ -1022,14 +1022,22 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new SimpleCaseExpression(
             (Expression) visit(context.valueExpression()),
             visit(context.whenClause(), WhenClause.class),
-            (Expression) visit(context.elseExpression));
+            visitIfPresent(context.elseExpr, Expression.class).orElse(null));
     }
 
     @Override
     public Node visitSearchedCase(SqlBaseParser.SearchedCaseContext context) {
         return new SearchedCaseExpression(
             visit(context.whenClause(), WhenClause.class),
-            (Expression) visit(context.elseExpression));
+            visitIfPresent(context.elseExpr, Expression.class).orElse(null));
+    }
+
+    @Override
+    public Node visitIfCase(SqlBaseParser.IfCaseContext context) {
+        return new IfExpression(
+            (Expression) visit(context.condition),
+            (Expression) visit(context.trueValue),
+            visitIfPresent(context.falseValue, Expression.class).orElse(null));
     }
 
     @Override
