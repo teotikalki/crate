@@ -49,7 +49,7 @@ statement
     | SHOW SCHEMAS (LIKE pattern=stringLiteral | where)?                                    #showSchemas
     | SHOW COLUMNS (FROM | IN) tableName=qname ((FROM | IN) schema=qname)?
         (LIKE pattern=stringLiteral | where)?                                               #showColumns
-    | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDefinition                      #addColumn
+    | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDef                             #addColumn
     | ALTER TABLE alterTableDefinition
         (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterTableProperties
     | ALTER BLOB TABLE alterTableDefinition
@@ -438,24 +438,29 @@ clusteredInto
     ;
 
 tableElement
-    : columnDefinition                                                               #columndDefinitionDefault
+    : columnDef                                                                      #columndDefinitionDefault
     | PRIMARY_KEY columns                                                            #primaryKeyConstraint
     | INDEX name=ident USING method=ident columns withProperties?                    #indexDefinition
     ;
 
-columnDefinition
-    : ident generatedColumnDefinition
-    | ident dataType columnConstraint*
+columnDef
+    : generatedColumnDefinition                                                      #generatedColumnDefinitionDefault
+    | ident dataType columnConstraint*                                               #columnDefinition
+    ;
+
+addColumnDef
+    : addGeneratedColumnDefinition                                                   #addGeneratedColumnDefinitionDefault
+    | subscriptSafe dataType columnConstraint*                                       #addColumnDefinition
     ;
 
 generatedColumnDefinition
-    : GENERATED ALWAYS AS expr columnConstraint*
-    | (dataType GENERATED ALWAYS)? AS expr columnConstraint*
+    : ident GENERATED ALWAYS AS generatedExpr=expr columnConstraint*
+    | ident (dataType GENERATED ALWAYS)? AS generatedExpr=expr columnConstraint*
     ;
 
-addColumnDefinition
-    : subscriptSafe generatedColumnDefinition
-    | subscriptSafe dataType columnConstraint*
+addGeneratedColumnDefinition
+    : subscriptSafe GENERATED ALWAYS AS generatedExpr=expr columnConstraint*
+    | subscriptSafe (dataType GENERATED ALWAYS)? AS generatedExpr=expr columnConstraint*
     ;
 
 dataType
@@ -479,7 +484,7 @@ dataType
 
 objectTypeDefinition
     : OBJECT ('(' type=(DYNAMIC | STRICT | IGNORED) ')')?
-        (AS '(' columnDefinition ( ',' columnDefinition )* ')')?
+        (AS '(' columnDef ( ',' columnDef )* ')')?
     ;
 
 arrayTypeDefinition

@@ -353,14 +353,17 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context) {
         return new ColumnDefinition(
             getIdentValue(context.ident()),
-            visitIfPresent(context.generatedColumnDefinition(), Expression.class).orElse(null),
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
     }
 
     @Override
     public Node visitGeneratedColumnDefinition(SqlBaseParser.GeneratedColumnDefinitionContext context) {
-        return visit(context.expr());
+        return new ColumnDefinition(
+            getIdentValue(context.ident()),
+            visitIfPresent(context.generatedExpr, Expression.class).orElse(null),
+            visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
+            visit(context.columnConstraint(), ColumnConstraint.class));
     }
 
     @Override
@@ -457,19 +460,27 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     }
 
     @Override
+    public Node visitAddColumn(SqlBaseParser.AddColumnContext context) {
+        return new AlterTableAddColumn(
+            (Table) visit(context.alterTableDefinition()),
+            (AddColumnDefinition) visit(context.addColumnDef()));
+    }
+
+    @Override
     public Node visitAddColumnDefinition(SqlBaseParser.AddColumnDefinitionContext context) {
         return new AddColumnDefinition(
             (Expression) visit(context.subscriptSafe()),
-            visitIfPresent(context.generatedColumnDefinition(), Expression.class).orElse(null),
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
     }
 
     @Override
-    public Node visitAddColumn(SqlBaseParser.AddColumnContext context) {
-        return new AlterTableAddColumn(
-            (Table) visit(context.alterTableDefinition()),
-            (AddColumnDefinition) visit(context.addColumnDefinition()));
+    public Node visitAddGeneratedColumnDefinition(SqlBaseParser.AddGeneratedColumnDefinitionContext context) {
+        return new AddColumnDefinition(
+            (Expression) visit(context.subscriptSafe()),
+            visitIfPresent(context.generatedExpr, Expression.class).orElse(null),
+            visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
+            visit(context.columnConstraint(), ColumnConstraint.class));
     }
 
     // Assignments
@@ -1120,7 +1131,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.objectTypeDefinition() != null) {
             return new ObjectColumnType(
                 getObjectType(context.objectTypeDefinition().type),
-                visit(context.objectTypeDefinition().columnDefinition(), ColumnDefinition.class));
+                visit(context.objectTypeDefinition().columnDef(), ColumnDefinition.class));
         } else if (context.arrayTypeDefinition() != null) {
             return CollectionColumnType.array((ColumnType) visit(context.arrayTypeDefinition().dataType()));
         } else if (context.setTypeDefinition() != null) {
