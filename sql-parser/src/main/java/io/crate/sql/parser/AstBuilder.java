@@ -1086,17 +1086,17 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitDateLiteral(SqlBaseParser.DateLiteralContext context) {
-        return new DateLiteral(context.STRING().getText());
+        return new DateLiteral(unquote(context.STRING().getText()));
     }
 
     @Override
     public Node visitTimeLiteral(SqlBaseParser.TimeLiteralContext context) {
-        return new TimeLiteral(context.STRING().getText());
+        return new TimeLiteral(unquote(context.STRING().getText()));
     }
 
     @Override
     public Node visitTimestampLiteral(SqlBaseParser.TimestampLiteralContext context) {
-        return new TimestampLiteral(context.STRING().getText());
+        return new TimestampLiteral(unquote(context.STRING().getText()));
     }
 
     @Override

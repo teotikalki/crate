@@ -248,15 +248,18 @@ public class TestSqlParser {
     }
 
     @Test
-    public void testDate()
-        throws Exception {
+    public void testDate() throws Exception {
         assertExpression("DATE '2012-03-22'", new DateLiteral("2012-03-22"));
     }
 
     @Test
-    public void testTime()
-        throws Exception {
+    public void testTime() throws Exception {
         assertExpression("TIME '03:04:05'", new TimeLiteral("03:04:05"));
+    }
+
+    @Test
+    public void testTimestamp() throws Exception {
+        assertExpression("TIMESTAMP '2016-12-31 01:02:03.123'", new TimestampLiteral("2016-12-31 01:02:03.123"));
     }
 
     @Test
