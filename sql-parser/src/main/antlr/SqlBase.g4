@@ -36,41 +36,43 @@ singleExpression
     ;
 
 statement
-    : query                                                                                 #default
-    | BEGIN                                                                                 #begin
-    | EXPLAIN statement                                                                     #explain
-    | OPTIMIZE TABLE tableWithPartitions withProperties?                                    #optimize
-    | REFRESH TABLE tableWithPartitions                                                     #refreshTable
-    | UPDATE aliasedRelation SET assignment (',' assignment)* where?                        #update
-    | DELETE FROM aliasedRelation where?                                                    #delete
-    | SHOW TRANSACTION ISOLATION LEVEL                                                      #showTransaction
-    | SHOW CREATE TABLE table                                                               #showCreateTable
-    | SHOW TABLES ((FROM | IN) qname)? (LIKE pattern=stringLiteral | where)?                #showTables
-    | SHOW SCHEMAS (LIKE pattern=stringLiteral | where)?                                    #showSchemas
+    : query                                                                          #default
+    | BEGIN                                                                          #begin
+    | EXPLAIN statement                                                              #explain
+    | OPTIMIZE TABLE tableWithPartitions withProperties?                             #optimize
+    | REFRESH TABLE tableWithPartitions                                              #refreshTable
+    | UPDATE aliasedRelation SET assignment (',' assignment)* where?                 #update
+    | DELETE FROM aliasedRelation where?                                             #delete
+    | SHOW TRANSACTION ISOLATION LEVEL                                               #showTransaction
+    | SHOW CREATE TABLE table                                                        #showCreateTable
+    | SHOW TABLES ((FROM | IN) qname)? (LIKE pattern=stringLiteral | where)?         #showTables
+    | SHOW SCHEMAS (LIKE pattern=stringLiteral | where)?                             #showSchemas
     | SHOW COLUMNS (FROM | IN) tableName=qname ((FROM | IN) schema=qname)?
-        (LIKE pattern=stringLiteral | where)?                                               #showColumns
-    | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDef                             #addColumn
+        (LIKE pattern=stringLiteral | where)?                                        #showColumns
+    | ALTER TABLE alterTableDefinition ADD COLUMN? addColumnDefinition               #addColumn
     | ALTER TABLE alterTableDefinition
-        (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterTableProperties
+        (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)        #alterTableProperties
     | ALTER BLOB TABLE alterTableDefinition
-        (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)               #alterBlobTableProperties
-    | RESET GLOBAL primaryExpression (',' primaryExpression)*                               #resetGlobal
-    | SET (SESSION | LOCAL)? name=qname (EQ | TO) (DEFAULT | setExpr (',' setExpr)*)        #set
-    | SET GLOBAL (PERSISTENT | TRANSIENT)? setGlobalAssignment (',' setGlobalAssignment)*   #setGlobal
-    | KILL ALL                                                                              #killAll
-    | KILL jobId                                                                            #kill
+        (SET '(' genericProperties ')' | RESET ('(' ident (',' ident)* ')')?)        #alterBlobTableProperties
+    | RESET GLOBAL primaryExpression (',' primaryExpression)*                        #resetGlobal
+    | SET (SESSION | LOCAL)? name=qname
+        (EQ | TO) (DEFAULT | setExpr (',' setExpr)*)                                 #set
+    | SET GLOBAL (PERSISTENT | TRANSIENT)?
+        setGlobalAssignment (',' setGlobalAssignment)*                               #setGlobal
+    | KILL ALL                                                                       #killAll
+    | KILL jobId                                                                     #kill
     | INSERT INTO table ('(' ident (',' ident)* ')')? insertSource
-        (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                           #insert
-    | RESTORE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?              #restore
-    | COPY tableWithPartition FROM path=expr withProperties?                                #copyFrom
+        (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                    #insert
+    | RESTORE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?       #restore
+    | COPY tableWithPartition FROM path=expr withProperties?                         #copyFrom
     | COPY tableWithPartition columns? where?
-        TO DIRECTORY? path=expr withProperties?                                             #copyTo
-    | DROP BLOB TABLE (IF EXISTS)? table                                                    #dropBlobTable
-    | DROP TABLE (IF EXISTS)? table                                                         #dropTable
-    | DROP ALIAS name=qname                                                                 #dropAlias
-    | DROP REPOSITORY name=ident                                                            #dropRepository
-    | DROP SNAPSHOT name=qname                                                              #dropSnapshot
-    | createStmt                                                                            #create
+        TO DIRECTORY? path=expr withProperties?                                      #copyTo
+    | DROP BLOB TABLE (IF EXISTS)? table                                             #dropBlobTable
+    | DROP TABLE (IF EXISTS)? table                                                  #dropTable
+    | DROP ALIAS name=qname                                                          #dropAlias
+    | DROP REPOSITORY name=ident                                                     #dropRepository
+    | DROP SNAPSHOT name=qname                                                       #dropSnapshot
+    | createStmt                                                                     #create
     ;
 
 query
@@ -438,24 +440,24 @@ clusteredInto
     ;
 
 tableElement
-    : columnDef                                                                      #columndDefinitionDefault
+    : columnDefinition                                                               #columndDefinitionDefault
     | PRIMARY_KEY columns                                                            #primaryKeyConstraint
     | INDEX name=ident USING method=ident columns withProperties?                    #indexDefinition
     ;
 
-columnDef
-    : generatedColumnDefinition                                                      #generatedColumnDefinitionDefault
-    | ident dataType columnConstraint*                                               #columnDefinition
-    ;
-
-addColumnDef
-    : addGeneratedColumnDefinition                                                   #addGeneratedColumnDefinitionDefault
-    | subscriptSafe dataType columnConstraint*                                       #addColumnDefinition
+columnDefinition
+    : generatedColumnDefinition
+    | ident dataType columnConstraint*
     ;
 
 generatedColumnDefinition
     : ident GENERATED ALWAYS AS generatedExpr=expr columnConstraint*
     | ident (dataType GENERATED ALWAYS)? AS generatedExpr=expr columnConstraint*
+    ;
+
+addColumnDefinition
+    : addGeneratedColumnDefinition
+    | subscriptSafe dataType columnConstraint*
     ;
 
 addGeneratedColumnDefinition
@@ -484,7 +486,7 @@ dataType
 
 objectTypeDefinition
     : OBJECT ('(' type=(DYNAMIC | STRICT | IGNORED) ')')?
-        (AS '(' columnDef ( ',' columnDef )* ')')?
+        (AS '(' columnDefinition ( ',' columnDefinition )* ')')?
     ;
 
 arrayTypeDefinition

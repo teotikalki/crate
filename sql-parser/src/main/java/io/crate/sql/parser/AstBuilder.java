@@ -351,8 +351,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context) {
+        if (context.generatedColumnDefinition() != null) {
+            return visit(context.generatedColumnDefinition());
+        }
         return new ColumnDefinition(
             getIdentValue(context.ident()),
+            null,
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
     }
@@ -463,13 +467,17 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context) {
         return new AlterTableAddColumn(
             (Table) visit(context.alterTableDefinition()),
-            (AddColumnDefinition) visit(context.addColumnDef()));
+            (AddColumnDefinition) visit(context.addColumnDefinition()));
     }
 
     @Override
     public Node visitAddColumnDefinition(SqlBaseParser.AddColumnDefinitionContext context) {
+        if (context.addGeneratedColumnDefinition() != null) {
+            return visit(context.addGeneratedColumnDefinition());
+        }
         return new AddColumnDefinition(
             (Expression) visit(context.subscriptSafe()),
+            null,
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
     }
@@ -1131,7 +1139,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.objectTypeDefinition() != null) {
             return new ObjectColumnType(
                 getObjectType(context.objectTypeDefinition().type),
-                visit(context.objectTypeDefinition().columnDef(), ColumnDefinition.class));
+                visit(context.objectTypeDefinition().columnDefinition(), ColumnDefinition.class));
         } else if (context.arrayTypeDefinition() != null) {
             return CollectionColumnType.array((ColumnType) visit(context.arrayTypeDefinition().dataType()));
         } else if (context.setTypeDefinition() != null) {
@@ -1218,10 +1226,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return Optional.ofNullable(context).map(ParseTree::getText);
     }
 
-    private static Optional<String> getTextIfPresent(Token token) {
-        return Optional.ofNullable(token).map(Token::getText);
-    }
-
     private List<String> getColumnAliases(SqlBaseParser.AliasedColumnsContext columnAliasesContext) {
         if (columnAliasesContext == null) {
             return null;
@@ -1263,8 +1267,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
                 return ComparisonExpression.Type.GREATER_THAN;
             case SqlBaseLexer.GTE:
                 return ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
-//            case SqlBaseLexer.IS_DISTINCT_FROM:
-//                return ComparisonExpression.Type.IS_DISTINCT_FROM; TODO
             case SqlBaseLexer.REGEX_MATCH:
                 return ComparisonExpression.Type.REGEX_MATCH;
             case SqlBaseLexer.REGEX_NO_MATCH:
