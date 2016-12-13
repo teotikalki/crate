@@ -788,7 +788,6 @@ public class TestStatementBuilder {
         assertThat(quotedObjectLiteral.values().get("abc").isEmpty(), is(true));
         assertThat(quotedObjectLiteral.values().get("ABC").isEmpty(), is(true));
 
-        // TODO check if it breaks smth
         SqlParser.createExpression("{a=func('abc')}");
         SqlParser.createExpression("{b=identifier}");
         SqlParser.createExpression("{c=1+4}");

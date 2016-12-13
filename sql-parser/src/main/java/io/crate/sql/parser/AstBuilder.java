@@ -89,8 +89,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitCreateRepository(SqlBaseParser.CreateRepositoryContext context) {
         return new CreateRepository(
-            getIdentValue(context.name),
-            getIdentValue(context.type),
+            getIdentText(context.name),
+            getIdentText(context.type),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
@@ -109,9 +109,9 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitCreateAnalyzer(SqlBaseParser.CreateAnalyzerContext context) {
         String extendedAnalyzer = null;
         if (context.extendedname != null)
-            extendedAnalyzer = getIdentValue(context.extendedname);
+            extendedAnalyzer = getIdentText(context.extendedname);
         return new CreateAnalyzer(
-            getIdentValue(context.name),
+            getIdentText(context.name),
             extendedAnalyzer,
             visit(context.analyzerElement(), AnalyzerElement.class)
         );
@@ -134,7 +134,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitNamedProperties(SqlBaseParser.NamedPropertiesContext context) {
-        return new NamedProperties(getIdentValue(context.ident()),
+        return new NamedProperties(getIdentText(context.ident()),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
@@ -166,7 +166,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitDropRepository(SqlBaseParser.DropRepositoryContext context) {
-        return new DropRepository(getIdentValue(context.ident()));
+        return new DropRepository(getIdentText(context.ident()));
     }
 
     @Override
@@ -211,7 +211,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitInsert(SqlBaseParser.InsertContext context) {
         List<String> columns = context.ident()
             .stream()
-            .map(this::getIdentValue)
+            .map(this::getIdentText)
             .collect(toList());
 
         List<Assignment> onDuplicateKeyAssignments = Optional.ofNullable(
@@ -291,12 +291,10 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitKill(SqlBaseParser.KillContext context) {
+        if (context.ALL() != null) {
+            return new KillStatement();
+        }
         return new KillStatement((Expression) visit(context.jobId()));
-    }
-
-    @Override
-    public Node visitKillAll(SqlBaseParser.KillAllContext context) {
-        return new KillStatement();
     }
 
     @Override
@@ -355,7 +353,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             return visit(context.generatedColumnDefinition());
         }
         return new ColumnDefinition(
-            getIdentValue(context.ident()),
+            getIdentText(context.ident()),
             null,
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
@@ -364,7 +362,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitGeneratedColumnDefinition(SqlBaseParser.GeneratedColumnDefinitionContext context) {
         return new ColumnDefinition(
-            getIdentValue(context.ident()),
+            getIdentText(context.ident()),
             visitIfPresent(context.generatedExpr, Expression.class).orElse(null),
             visitIfPresent(context.dataType(), ColumnType.class).orElse(null),
             visit(context.columnConstraint(), ColumnConstraint.class));
@@ -393,15 +391,15 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitColumnIndexConstraint(SqlBaseParser.ColumnIndexConstraintContext context) {
         return new IndexColumnConstraint(
-            getIdentValue(context.method),
+            getIdentText(context.method),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
     @Override
     public Node visitIndexDefinition(SqlBaseParser.IndexDefinitionContext context) {
         return new IndexDefinition(
-            getIdentValue(context.name),
-            getIdentValue(context.method),
+            getIdentText(context.name),
+            getIdentText(context.method),
             visit(context.columns().primaryExpression(), Expression.class),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
@@ -440,7 +438,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitGenericProperty(SqlBaseParser.GenericPropertyContext context) {
-        return new GenericProperty(getIdentValue(context.ident()), (Expression) visit(context.expr()));
+        return new GenericProperty(getIdentText(context.ident()), (Expression) visit(context.expr()));
     }
 
     // Amending tables
@@ -451,7 +449,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.SET() != null) {
             return new AlterTable(name, (GenericProperties) visit(context.genericProperties()));
         }
-        return new AlterTable(name, context.ident().stream().map(this::getIdentValue).collect(toList()));
+        return new AlterTable(name, context.ident().stream().map(this::getIdentText).collect(toList()));
     }
 
     @Override
@@ -460,7 +458,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.SET() != null) {
             return new AlterBlobTable(name, (GenericProperties) visit(context.genericProperties()));
         }
-        return new AlterBlobTable(name, context.ident().stream().map(this::getIdentValue).collect(toList()));
+        return new AlterBlobTable(name, context.ident().stream().map(this::getIdentText).collect(toList()));
     }
 
     @Override
@@ -524,7 +522,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     @Override
     public Node visitNamedQuery(SqlBaseParser.NamedQueryContext context) {
         return new WithQuery(
-            getIdentValue(context.name),
+            getIdentText(context.name),
             (Query) visit(context.query()),
             Optional.ofNullable(getColumnAliases(context.aliasedColumns())).orElse(ImmutableList.of()));
     }
@@ -632,9 +630,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitSelectSingle(SqlBaseParser.SelectSingleContext context) {
-        // TODO cleanup
-        com.google.common.base.Optional<String> alias = wrapJavaOptional(getTextIfPresent(context.ident()));
-        return new SingleColumn((Expression) visit(context.expr()), alias);
+        Optional<String> alias = getIdentTextIfPresent(context.ident());
+        return new SingleColumn((Expression) visit(context.expr()), wrapJavaOptional(alias));
     }
 
     /*
@@ -654,9 +651,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new StringLiteral(context.getText());
     }
 
-    private String getIdentValue(SqlBaseParser.IdentContext ident) {
+    private String getIdentText(SqlBaseParser.IdentContext ident) {
         StringLiteral literal = (StringLiteral) visit(ident);
         return literal.getValue();
+    }
+
+    private Optional<String> getIdentTextIfPresent(SqlBaseParser.IdentContext ident) {
+        return Optional.ofNullable(ident).map(this::getIdentText);
     }
 
     @Override
@@ -664,7 +665,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         if (context.qname() != null) {
             return new Table(getQualifiedName(context.qname()), visit(context.parameterOrLiteral(), Assignment.class));
         }
-        return new TableFunction(getIdentValue(context.ident()), visit(context.parameterOrLiteral(), Expression.class));
+        return new TableFunction(getIdentText(context.ident()), visit(context.parameterOrLiteral(), Expression.class));
     }
 
     @Override
@@ -737,7 +738,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             } else if (context.joinCriteria().USING() != null) {
                 List<String> columns = context.joinCriteria()
                     .ident().stream()
-                    .map(this::getIdentValue)
+                    .map(this::getIdentText)
                     .collect(toList());
 
                 criteria = new JoinUsing(columns);
@@ -768,7 +769,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             return child;
         }
 
-        return new AliasedRelation(child, getIdentValue(context.ident()), getColumnAliases(context.aliasedColumns()));
+        return new AliasedRelation(child, getIdentText(context.ident()), getColumnAliases(context.aliasedColumns()));
     }
 
     @Override
@@ -915,7 +916,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         return new MatchPredicate(
             idents,
             (Expression) visit(context.term),
-            getTextIfPresent(context.matchType).orElse(null),
+            getIdentTextIfPresent(context.matchType).orElse(null),
             visitIfPresent(context.withProperties(), GenericProperties.class).orElse(null));
     }
 
@@ -1008,14 +1009,14 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitDereference(SqlBaseParser.DereferenceContext context) {
         List<String> parts = context
             .ident().stream()
-            .map(this::getIdentValue)
+            .map(this::getIdentText)
             .collect(toList());
         return new QualifiedNameReference(QualifiedName.of(parts));
     }
 
     @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context) {
-        return new QualifiedNameReference(QualifiedName.of(getIdentValue(context.ident())));
+        return new QualifiedNameReference(QualifiedName.of(getIdentText(context.ident())));
     }
 
     @Override
@@ -1124,15 +1125,27 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     public Node visitObjectLiteral(SqlBaseParser.ObjectLiteralContext context) {
         Multimap<String, Expression> objAttributes = LinkedListMultimap.create();
         context.objectKeyValue().forEach(attr ->
-            objAttributes.put(getIdentValue(attr.key), (Expression) visit(attr.value))
+            objAttributes.put(getIdentText(attr.key), (Expression) visit(attr.value))
         );
         return new ObjectLiteral(objAttributes);
+    }
+
+    @Override
+    public Node visitParameterPlaceholder(SqlBaseParser.ParameterPlaceholderContext context) {
+        return new ParameterExpression(parameterPosition++);
+    }
+
+    @Override
+    public Node visitPositionalParameter(SqlBaseParser.PositionalParameterContext context) {
+        return new ParameterExpression(Integer.valueOf(context.integerLiteral().getText()));
     }
 
     @Override
     public Node visitOn(SqlBaseParser.OnContext context) {
         return BooleanLiteral.TRUE_LITERAL;
     }
+
+    // Data types
 
     @Override
     public Node visitDataType(SqlBaseParser.DataTypeContext context) {
@@ -1160,16 +1173,6 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         }
 
         throw new UnsupportedOperationException("Unsupported object type: " + type.getText());
-    }
-
-    @Override
-    public Node visitParameterPlaceholder(SqlBaseParser.ParameterPlaceholderContext context) {
-        return new ParameterExpression(parameterPosition++);
-    }
-
-    @Override
-    public Node visitPositionalParameter(SqlBaseParser.PositionalParameterContext context) {
-        return new ParameterExpression(Integer.valueOf(context.integerLiteral().getText()));
     }
 
     // Helpers
@@ -1212,7 +1215,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
     private QualifiedName getQualifiedName(SqlBaseParser.QnameContext context) {
         List<String> parts = context
             .ident().stream()
-            .map(this::getIdentValue)
+            .map(this::getIdentText)
             .collect(toList());
 
         return QualifiedName.of(parts);
@@ -1232,7 +1235,7 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
         }
         return columnAliasesContext
             .ident().stream()
-            .map(this::getIdentValue)
+            .map(this::getIdentText)
             .collect(toList());
     }
 

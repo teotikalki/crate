@@ -21,12 +21,6 @@
 
 grammar SqlBase;
 
-@rulecatch {
-    catch (RecognitionException re) {
-        throw new ParsingException(getErrorMessage(re, getTokenNames()), re);
-    }
-}
-
 singleStatement
     : statement EOF
     ;
@@ -59,8 +53,7 @@ statement
         (EQ | TO) (DEFAULT | setExpr (',' setExpr)*)                                 #set
     | SET GLOBAL (PERSISTENT | TRANSIENT)?
         setGlobalAssignment (',' setGlobalAssignment)*                               #setGlobal
-    | KILL ALL                                                                       #killAll
-    | KILL jobId                                                                     #kill
+    | KILL (ALL | jobId)                                                             #kill
     | INSERT INTO table ('(' ident (',' ident)* ')')? insertSource
         (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                    #insert
     | RESTORE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?       #restore
@@ -171,10 +164,6 @@ tableWithPartition
 table
     : qname
     | ident '(' parameterOrLiteral? (',' parameterOrLiteral)* ')'
-    ;
-
-tableOnly
-    : ONLY qname
     ;
 
 aliasedColumns
@@ -425,8 +414,8 @@ createStmt
     ;
 
 alterTableDefinition
-    : tableOnly
-    | tableWithPartition
+    : ONLY qname                                                                     #tableOnly
+    | tableWithPartition                                                             #tableWithPartitionDefault
     ;
 
 crateTableOption
