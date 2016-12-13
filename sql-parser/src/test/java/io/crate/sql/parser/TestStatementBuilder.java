@@ -363,6 +363,11 @@ public class TestStatementBuilder {
 
     @Test
     public void testStatementBuilder() throws Exception {
+        printStatement("select ab" +
+            " from (select (ii + y) as iiy, concat(a, b) as ab" +
+                " from (select t1.a, t2.b, t2.y, (t1.i + t2.i) as ii " +
+                    " from t1, t2 where t1.a='a' or t2.b='aa') as t)" +
+            " as tt order by iiy");
         printStatement("select extract(day from x) from y");
         printStatement("select * from foo order by 1, 2 limit 1 offset ?");
         printStatement("select * from foo a (x, y, z)");

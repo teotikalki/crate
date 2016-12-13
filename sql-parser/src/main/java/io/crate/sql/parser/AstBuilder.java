@@ -26,7 +26,6 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -549,24 +548,13 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitQuerySpecification(SqlBaseParser.QuerySpecificationContext context) {
-//        Optional<Relation> from = Optional.empty();
         List<SelectItem> selectItems = visit(context.selectItem(), SelectItem.class);
 
         List<Relation> relations = visit(context.relation(), Relation.class);
-        if (!relations.isEmpty()) {
-            // synthesize implicit join nodes
-            Iterator<Relation> iterator = relations.iterator();
-            Relation relation = iterator.next();
-            // TODO fix fix
-            while (iterator.hasNext()) {
-//                relation = new Join(Join.Type.IMPLICIT, relation, iterator.next(), Optional.<JoinCriteria>empty());
-            }
-
-//            from = Optional.of(relation);
-        } else {
+        // TODO check for isEmpty() not for null
+        if (relations.isEmpty()) {
             relations = null;
         }
-
         return new QuerySpecification(
             new Select(isDistinct(context.setQuant()), selectItems),
             relations,

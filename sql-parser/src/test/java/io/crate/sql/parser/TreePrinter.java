@@ -23,7 +23,7 @@ package io.crate.sql.parser;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import org.antlr.runtime.tree.Tree;
+import org.antlr.v4.runtime.tree.Tree;
 
 import java.util.List;
 
