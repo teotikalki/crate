@@ -1248,6 +1248,8 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
                 return ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
             case SqlBaseLexer.GT:
                 return ComparisonExpression.Type.GREATER_THAN;
+            case SqlBaseLexer.GTE:
+                return ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
 //            case SqlBaseLexer.IS_DISTINCT_FROM:
 //                return ComparisonExpression.Type.IS_DISTINCT_FROM; TODO
             case SqlBaseLexer.REGEX_MATCH:
