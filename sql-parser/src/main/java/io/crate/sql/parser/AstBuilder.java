@@ -495,7 +495,12 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
 
     @Override
     public Node visitAssignment(SqlBaseParser.AssignmentContext context) {
-        return new Assignment((Expression) visit(context.primaryExpression()), (Expression) visit(context.expr()));
+        Expression column = (Expression) visit(context.primaryExpression());
+        if (column instanceof SubscriptExpression || column instanceof QualifiedNameReference) {
+            return new Assignment(column, (Expression) visit(context.expr()));
+        }
+        throw new IllegalArgumentException(
+            String.format("cannot use expression %s as a left side of an assignment", column));
     }
 
     // Query specification
