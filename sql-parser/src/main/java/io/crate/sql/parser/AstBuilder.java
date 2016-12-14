@@ -214,22 +214,19 @@ class AstBuilder extends SqlBaseBaseVisitor<Node> {
             .map(this::getIdentText)
             .collect(toList());
 
-        List<Assignment> onDuplicateKeyAssignments = Optional.ofNullable(
-            visit(context.assignment(), Assignment.class)).orElse(ImmutableList.of());
-
-        if (context.insertSource().query() != null) {
-            return new InsertFromSubquery(
+        if (context.insertSource().VALUES() != null) {
+            return new InsertFromValues(
                 (Table) visit(context.table()),
-                (Query) visit(context.insertSource().query()),
+                visit(context.insertSource().values(), ValuesList.class),
                 columns,
-                onDuplicateKeyAssignments);
+                Optional.ofNullable(visit(context.assignment(), Assignment.class)).orElse(null));
         }
 
-        return new InsertFromValues(
+        return new InsertFromSubquery(
             (Table) visit(context.table()),
-            visit(context.insertSource().values(), ValuesList.class),
+            (Query) visit(context.insertSource().query()),
             columns,
-            onDuplicateKeyAssignments);
+            Optional.ofNullable(visit(context.assignment(), Assignment.class)).orElse(null));
     }
 
     @Override

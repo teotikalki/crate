@@ -55,7 +55,7 @@ statement
         setGlobalAssignment (',' setGlobalAssignment)*                               #setGlobal
     | KILL (ALL | jobId)                                                             #kill
     | INSERT INTO table ('(' ident (',' ident)* ')')? insertSource
-        (ON DUPLICATE KEY UPDATE assignment ( ',' assignment )*)?                    #insert
+        (ON DUPLICATE KEY UPDATE assignment (',' assignment)*)?                      #insert
     | RESTORE SNAPSHOT qname (ALL | TABLE tableWithPartitions) withProperties?       #restore
     | COPY tableWithPartition FROM path=expr withProperties?                         #copyFrom
     | COPY tableWithPartition columns? where?

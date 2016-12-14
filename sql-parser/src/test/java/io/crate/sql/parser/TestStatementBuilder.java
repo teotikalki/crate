@@ -545,6 +545,13 @@ public class TestStatementBuilder {
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = 4");
         printStatement("insert into t (a, b) values (1, 2), (3, 4) on duplicate key update a = values (a) + 1, b = values(b) - 2");
 
+        InsertFromValues insert = (InsertFromValues) SqlParser.createStatement(
+                "insert into test_generated_column (id, ts) values (?, ?) on duplicate key update ts = ?"
+        );
+        Assignment onDuplicateAssignment = insert.onDuplicateKeyAssignments().get(0);
+        assertThat(onDuplicateAssignment.expression(), instanceOf(ParameterExpression.class));
+        assertThat(onDuplicateAssignment.expressions().get(0).toString(), is("$3"));
+
         // insert from query
         printStatement("insert into foo (id, name) select id, name from bar order by id");
         printStatement("insert into foo (id, name) select * from bar limit 3 offset 10");
