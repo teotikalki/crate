@@ -24,7 +24,6 @@ package io.crate.core.collections;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.Collection;
 import java.util.List;
 
 public class BucketPage {
@@ -39,7 +38,7 @@ public class BucketPage {
         this.buckets = ImmutableList.of(bucket);
     }
 
-    public Collection<? extends ListenableFuture<Bucket>> buckets() {
+    public List<? extends ListenableFuture<Bucket>> buckets() {
         return buckets;
     }
 }
