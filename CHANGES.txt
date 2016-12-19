@@ -5,6 +5,8 @@ Changes for Crate
 Unreleased
 ==========
 
+ - Allow semi-colon (;) in the end of simple SQL statements.
+
  - Do not display current statement in ``sys.jobs`` that disabled stats.
 
  - Added support for the double colon (::) cast operator.
