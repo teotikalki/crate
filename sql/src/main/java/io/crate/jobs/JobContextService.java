@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.*;
 import io.crate.concurrent.CountdownFutureCallback;
 import io.crate.exceptions.ContextMissingException;
+import io.crate.operation.NodeOperation;
 import io.crate.operation.collect.StatsTables;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.cluster.ClusterService;
@@ -38,6 +39,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Singleton
 public class JobContextService extends AbstractLifecycleComponent<JobContextService> {
@@ -84,13 +87,17 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
     }
 
     public Collection<JobExecutionContext> getContextsByCoordinatorNode(final String coordinatorNodeId) {
-        List<JobExecutionContext> contexts = new ArrayList<>();
-        for (JobExecutionContext jobExecutionContext : activeContexts.values()) {
-            if (jobExecutionContext.coordinatorNodeId().equals(coordinatorNodeId)) {
-                contexts.add(jobExecutionContext);
-            }
-        }
+        List<JobExecutionContext> contexts = activeContexts.values()
+            .stream()
+            .filter(jobExecutionContext -> jobExecutionContext.coordinatorNodeId().equals(coordinatorNodeId))
+            .collect(Collectors.toList());
         return contexts;
+    }
+
+    public Stream<UUID> getContextByParticipatingNodes(final String nodeId) {
+        return activeContexts.values().stream()
+            .filter(i -> i.participatingNodes().contains(nodeId))
+            .map(JobExecutionContext::jobId);
     }
 
     @Nullable
@@ -99,11 +106,15 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
     }
 
     public JobExecutionContext.Builder newBuilder(UUID jobId) {
-        return new JobExecutionContext.Builder(jobId, clusterService.localNode().getId(), statsTables);
+        return new JobExecutionContext.Builder(jobId, clusterService.localNode().getId(), Collections.emptyList(), statsTables);
     }
 
     public JobExecutionContext.Builder newBuilder(UUID jobId, String coordinatorNodeId) {
-        return new JobExecutionContext.Builder(jobId, coordinatorNodeId, statsTables);
+        return new JobExecutionContext.Builder(jobId, coordinatorNodeId, Collections.emptyList(), statsTables);
+    }
+
+    public JobExecutionContext.Builder newBuilder(UUID jobId, String coordinatorNodeId, Collection<String> participatingNodes) {
+        return new JobExecutionContext.Builder(jobId, coordinatorNodeId, participatingNodes, statsTables);
     }
 
     public JobExecutionContext createContext(JobExecutionContext.Builder contextBuilder) throws Exception {
