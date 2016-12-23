@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import io.crate.analyze.WhereClause;
 import io.crate.analyze.relations.AnalyzedRelation;
 import io.crate.analyze.relations.TableRelation;
+import io.crate.lucene.match.CrateRegexQuery;
 import io.crate.metadata.Functions;
 import io.crate.metadata.TableIdent;
 import io.crate.metadata.doc.DocTableInfo;
@@ -36,7 +37,6 @@ import io.crate.types.ArrayType;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import org.apache.lucene.queries.TermsQuery;
-import org.apache.lucene.sandbox.queries.regex.RegexQuery;
 import org.apache.lucene.search.*;
 import org.apache.lucene.spatial.prefix.IntersectsPrefixTreeQuery;
 import org.apache.lucene.spatial.prefix.WithinPrefixTreeQuery;
@@ -241,7 +241,7 @@ public class LuceneQueryBuilderTest extends CrateUnitTest {
     @Test
     public void testRegexQueryPcre() throws Exception {
         Query query = convert("name ~ '\\D'");
-        assertThat(query, instanceOf(RegexQuery.class));
+        assertThat(query, instanceOf(CrateRegexQuery.class));
     }
 
     @Test
