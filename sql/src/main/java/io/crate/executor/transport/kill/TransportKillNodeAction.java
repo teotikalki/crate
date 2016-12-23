@@ -99,7 +99,7 @@ abstract class TransportKillNodeAction<Request extends TransportRequest> extends
 
     public void broadcast(Request request, ActionListener<KillResponse> listener, Collection<String> excludedNodeIds) {
         Stream<DiscoveryNode> nodes = StreamSupport.stream(clusterService.state().nodes().spliterator(), false);
-        Collection<DiscoveryNode> filteredNodes = nodes.filter(node -> excludedNodeIds.contains(node.getId())).collect(Collectors.toList());
+        Collection<DiscoveryNode> filteredNodes = nodes.filter(node -> !excludedNodeIds.contains(node.getId())).collect(Collectors.toList());
 
         listener = new MultiActionListener<>(filteredNodes.size(), KillResponse.MERGE_FUNCTION, listener);
         DefaultTransportResponseHandler<KillResponse> responseHandler =
