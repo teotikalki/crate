@@ -106,7 +106,7 @@ public class NodeDisconnectJobMonitorService
                 public void onFailure(Throwable e) {
                     LOGGER.warn("failed to send kill request to nodes");
                 }
-            });
+            }, Arrays.asList(node.getId()));
         }
 
         threadPool.schedule(DELAY, ThreadPool.Names.GENERIC, () -> jobContextService.killJobs(contexts));
