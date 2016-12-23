@@ -22,14 +22,10 @@
 
 package io.crate.jobs.transport;
 
-import com.google.common.collect.Collections2;
-import io.crate.executor.transport.OneRowActionListener;
 import io.crate.executor.transport.kill.KillJobsRequest;
 import io.crate.executor.transport.kill.KillResponse;
 import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
-import io.crate.executor.transport.task.KillTask;
 import io.crate.jobs.JobContextService;
-import io.crate.jobs.JobExecutionContext;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -44,6 +40,7 @@ import org.elasticsearch.transport.TransportConnectionListener;
 import org.elasticsearch.transport.TransportService;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -96,9 +93,9 @@ public class NodeDisconnectJobMonitorService
 
     @Override
     public void onNodeDisconnected(final DiscoveryNode node) {
-        final Collection<JobExecutionContext> contexts = jobContextService.getContextsByCoordinatorNode(node.getId());
+        final Collection<UUID> contexts = jobContextService.getJobIdsByCoordinatorNode(node.getId()).collect(Collectors.toList());
         if (contexts.isEmpty()) {
-            KillJobsRequest killJobsRequest = new KillJobsRequest(jobContextService.getContextByParticipatingNodes(node.getId()).collect(Collectors.toList()));
+            KillJobsRequest killJobsRequest = new KillJobsRequest(jobContextService.getJobIdsByParticipatingNodes(node.getId()).collect(Collectors.toList()));
             killJobsNodeAction.broadcast(killJobsRequest, new ActionListener<KillResponse>() {
                 @Override
                 public void onResponse(KillResponse killResponse) { }
@@ -110,11 +107,6 @@ public class NodeDisconnectJobMonitorService
             });
         }
 
-        threadPool.schedule(DELAY, ThreadPool.Names.GENERIC, new Runnable() {
-            @Override
-            public void run() {
-                jobContextService.killJobs(Collections2.transform(contexts, JobExecutionContext.TO_ID));
-            }
-        });
+        threadPool.schedule(DELAY, ThreadPool.Names.GENERIC, () -> jobContextService.killJobs(contexts));
     }
 }

@@ -86,15 +86,14 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
         return context;
     }
 
-    public Collection<JobExecutionContext> getContextsByCoordinatorNode(final String coordinatorNodeId) {
-        List<JobExecutionContext> contexts = activeContexts.values()
+    public Stream<UUID> getJobIdsByCoordinatorNode(final String coordinatorNodeId) {
+        return activeContexts.values()
             .stream()
             .filter(jobExecutionContext -> jobExecutionContext.coordinatorNodeId().equals(coordinatorNodeId))
-            .collect(Collectors.toList());
-        return contexts;
+            .map(JobExecutionContext::jobId);
     }
 
-    public Stream<UUID> getContextByParticipatingNodes(final String nodeId) {
+    public Stream<UUID> getJobIdsByParticipatingNodes(final String nodeId) {
         return activeContexts.values().stream()
             .filter(i -> i.participatingNodes().contains(nodeId))
             .map(JobExecutionContext::jobId);

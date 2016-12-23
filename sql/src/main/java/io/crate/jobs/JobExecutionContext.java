@@ -21,7 +21,6 @@
 
 package io.crate.jobs;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -45,13 +44,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class JobExecutionContext implements CompletionListenable {
 
     private static final ESLogger LOGGER = Loggers.getLogger(JobExecutionContext.class);
-    public static final Function<? super JobExecutionContext, UUID> TO_ID = new Function<JobExecutionContext, UUID>() {
-        @Nullable
-        @Override
-        public UUID apply(@Nullable JobExecutionContext input) {
-            return input == null ? null : input.jobId();
-        }
-    };
 
     private final UUID jobId;
     private final ConcurrentMap<Integer, ExecutionSubContext> subContexts;

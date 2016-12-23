@@ -23,6 +23,8 @@
 package io.crate.jobs.transport;
 
 import io.crate.exceptions.ContextMissingException;
+import io.crate.executor.transport.kill.TransportKillAllNodeAction;
+import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
 import io.crate.jobs.DummySubContext;
 import io.crate.jobs.JobContextService;
 import io.crate.jobs.JobExecutionContext;
@@ -35,6 +37,7 @@ import org.elasticsearch.common.transport.DummyTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.test.cluster.NoopClusterService;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.elasticsearch.transport.Transport;
 import org.elasticsearch.transport.TransportService;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
@@ -67,11 +70,13 @@ public class NodeDisconnectJobMonitorServiceTest extends CrateUnitTest {
             }
         });
 
+        TransportKillJobsNodeAction killAction = mock(TransportKillJobsNodeAction.class);
         NodeDisconnectJobMonitorService monitorService = new NodeDisconnectJobMonitorService(
             Settings.EMPTY,
             threadPool,
             jobContextService,
-            mock(TransportService.class));
+            mock(TransportService.class),
+            killAction);
 
         monitorService.onNodeDisconnected(new DiscoveryNode("noop_id", DummyTransportAddress.INSTANCE, Version.CURRENT));
 
