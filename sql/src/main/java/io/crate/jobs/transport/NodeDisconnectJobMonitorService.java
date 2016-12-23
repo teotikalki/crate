@@ -58,21 +58,18 @@ public class NodeDisconnectJobMonitorService
     private final static TimeValue DELAY = TimeValue.timeValueMinutes(1);
     private final TransportKillJobsNodeAction killJobsNodeAction;
     private final static ESLogger LOGGER = Loggers.getLogger(NodeDisconnectJobMonitorService.class);
-    private final DiscoveryNodes discoveryNodes;
 
     @Inject
     public NodeDisconnectJobMonitorService(Settings settings,
                                            ThreadPool threadPool,
                                            JobContextService jobContextService,
                                            TransportService transportService,
-                                           TransportKillJobsNodeAction killJobsNodeAction,
-                                           DiscoveryNodes discoveryNodes) {
+                                           TransportKillJobsNodeAction killJobsNodeAction) {
         super(settings);
         this.threadPool = threadPool;
         this.jobContextService = jobContextService;
         this.transportService = transportService;
         this.killJobsNodeAction = killJobsNodeAction;
-        this.discoveryNodes = discoveryNodes;
     }
 
 
@@ -109,7 +106,7 @@ public class NodeDisconnectJobMonitorService
                 public void onFailure(Throwable e) {
                     LOGGER.warn("failed to send kill request to nodes");
                 }
-            }, Arrays.asList(node.getId(), discoveryNodes.getLocalNodeId()));
+            }, Arrays.asList(node.getId()));
         }
 
         threadPool.schedule(DELAY, ThreadPool.Names.GENERIC, () -> jobContextService.killJobs(contexts));

@@ -80,8 +80,7 @@ public class NodeDisconnectJobMonitorServiceTest extends CrateUnitTest {
             threadPool,
             jobContextService,
             mock(TransportService.class),
-            mock(TransportKillJobsNodeAction.class),
-            mock(DiscoveryNodes.class));
+            mock(TransportKillJobsNodeAction.class));
 
         monitorService.onNodeDisconnected(new DiscoveryNode("noop_id", DummyTransportAddress.INSTANCE, Version.CURRENT));
 
@@ -100,9 +99,7 @@ public class NodeDisconnectJobMonitorServiceTest extends CrateUnitTest {
             .put(new DiscoveryNode("data_node_1", DummyTransportAddress.INSTANCE, Version.CURRENT))
             .put(new DiscoveryNode("data_node_2", DummyTransportAddress.INSTANCE, Version.CURRENT)).build();
 
-        JobExecutionContext.Builder builder = jobContextService.newBuilder(UUID.randomUUID(), discoveryNodes.getLocalNodeId(), Arrays.asList(discoveryNodes.getLocalNodeId(), "data_node_1", "data_node_2"));
-        builder.addSubContext(new DummySubContext());
-        JobExecutionContext context = jobContextService.createContext(builder);
+        jobContextService.newBuilder(UUID.randomUUID(), discoveryNodes.getLocalNodeId(), Arrays.asList(discoveryNodes.getLocalNodeId(), "data_node_1", "data_node_2"));
         TransportKillJobsNodeAction killAction = mock(TransportKillJobsNodeAction.class);
 
         NodeDisconnectJobMonitorService monitorService = new NodeDisconnectJobMonitorService(
@@ -110,12 +107,12 @@ public class NodeDisconnectJobMonitorServiceTest extends CrateUnitTest {
             mock(ThreadPool.class),
             jobContextService,
             mock(TransportService.class),
-            killAction,
-            discoveryNodes);
+            killAction);
 
         monitorService.onNodeDisconnected(discoveryNodes.get("data_node_1"));
-        // verify(killAction, times(1)).broadcast(any(KillJobsRequest.class), any(ActionListener.class));
-        expectedException.expect(ContextMissingException.class);
-        jobContextService.getContext(context.jobId());
+        verify(killAction, times(1)).broadcast(
+            any(KillJobsRequest.class),
+            any(ActionListener.class),
+            eq(Arrays.asList(discoveryNodes.get("data_node_1").getId())));
     }
 }
